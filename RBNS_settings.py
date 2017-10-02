@@ -223,7 +223,7 @@ class RBNS_settings:
         except AssertionError:
             curr_DIR = os.path.dirname( os.path.realpath(__file__) )
             print curr_DIR
-            fastq_F = os.path.join( curr_DIR, 'test_data', settings['fastq'] )
+            fastq_F = os.path.join( curr_DIR, 'test_data', os.path.basename(settings['fastq']) )
             print fastq_F
             assert( os.path.exists( fastq_F ) )
             print "\nERROR: FASTQ ({}) does not exist".format(
