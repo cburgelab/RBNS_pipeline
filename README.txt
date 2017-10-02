@@ -25,6 +25,7 @@
 		- scipy
 		- numpy
 		- matplotlib
+		- simplejson
 
 	- Optional dependencies for additional functionalities:
 		- WebLogo3 command line executable (tested with WebLogo 3.3: https://pypi.python.org/pypi/weblogo/3.3)

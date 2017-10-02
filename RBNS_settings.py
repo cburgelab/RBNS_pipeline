@@ -219,6 +219,8 @@ class RBNS_settings:
 
         #### Check to make sure the .fastq exists
         try:
+            curr_DIR = os.path.realpath(__file__)
+            print curr_DIR
             assert RBNS_utils.file_exists(settings['fastq'])
         except AssertionError:
             print "\nERROR: FASTQ ({}) does not exist".format(
