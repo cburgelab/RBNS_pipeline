@@ -222,14 +222,15 @@ class RBNS_settings:
             assert RBNS_utils.file_exists(settings['fastq'])
         except AssertionError:
             curr_DIR = os.path.dirname( os.path.realpath(__file__) )
-            print curr_DIR
             fastq_F = os.path.join( curr_DIR, 'test_data', os.path.basename(settings['fastq']) )
-            print fastq_F
-            assert( os.path.exists( fastq_F ) )
-            print "\nERROR: FASTQ ({}) does not exist".format(
-                        settings['fastq'] )
-            print "\t-> Change fastq path in {}\n\n".format( self.settings_file )
-            exit(1)
+            settings['fastq'] = fastq_F
+            try:
+                assert( RBNS_utils.file_exists(settings['fastq']) )
+            except:
+                print "\nERROR: FASTQ ({}) does not exist".format(
+                            settings['fastq'] )
+                print "\t-> Change fastq path in {}\n\n".format( self.settings_file )
+                exit(1)
 
         #### See if an adapter sequence was passed in to look for
         ####    randomer reads of the correct length

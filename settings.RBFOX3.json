@@ -1,5 +1,6 @@
 [ input ]
-fastq = /net/utr/data/atf/pfreese/test/RBFOX3.test.gz
+#fastq = /net/utr/data/atf/pfreese/test/RBFOX3.test.gz
+fastq = RBFOX3.test.gz
 barcodes = ["AGTTCC", "GGCTAC", "TCGGCA"]
 
 [ parameters ]
