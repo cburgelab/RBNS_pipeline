@@ -1,0 +1,44 @@
+[ input ]
+fastq = /net/utr/data/atf/pfreese/test/RBFOX3.test.gz
+barcodes = ["AGTTCC", "GGCTAC", "TCGGCA"]
+
+[ parameters ]
+read_len = 20
+protein_name = RBFOX3
+concentrations = [20, 1300, 0]
+temp = 4
+
+input_barcode = TCGGCA
+start_of_adapter_seq = TGGAAT
+
+naive_count = True
+stream_count = True
+by_position_count = True
+naive_max_once_count = False
+
+kmers_to_ignore = []
+
+ks_to_test_naive = [5, 6]
+ks_to_test_stream = [5]
+ks_to_test_by_position = [5]
+ks_to_test_naive_max_once = []
+ks_to_test_logos = []
+Z_scores_for_logos = []
+
+#ks_for_genome_browser_beds = [5]
+#kmer_weights_Ls_for_genome_browser_L = [["GCATG",50.842],["GCACG",10.776]]
+
+calculate_G_quadruplex = False
+
+
+force_naive_recount = False
+force_stream_recount = False
+force_by_position_recount = False
+force_redo_logos = False
+
+make_unique_reads_F = False
+
+[ output ]
+results_dir = /net/utr/data/atf/pfreese/test/RBFOX3_testdata
+user = pfreese
+
