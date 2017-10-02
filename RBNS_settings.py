@@ -277,7 +277,19 @@ class RBNS_settings:
         settings['conc_str_for_Fnames_L'] = conc_str_for_Fnames_L
 
         self.settings = settings
+        #### Make sure that the results dir. can be made; if not, make
+        ####    it one directory up from the pipeline directory
         self.rdir = settings['results_dir']
+        made_DIR = RBNS_utils.make_dir(self.rdir)
+        print made_DIR
+        if not made_DIR:
+            curr_DIR = os.path.dirname( os.path.realpath(__file__) )
+            parent_DIR = os.path.dirname( curr_DIR )
+            rDIR = os.path.join( parent_DIR, os.path.basename( self.rdir.rstrip('/') ) )
+            settings['results_dir'] = rDIR
+            self.rdir = settings['results_dir']
+            RBNS_utils.make_dir(self.rdir)
+            print self.rdir
         self.edir = os.path.join( settings['results_dir'], "errors" )
         RBNS_utils.make_dir(self.edir)
         self.check_barcode_lens()
