@@ -219,10 +219,12 @@ class RBNS_settings:
 
         #### Check to make sure the .fastq exists
         try:
-            curr_DIR = os.path.realpath(__file__)
-            print curr_DIR
             assert RBNS_utils.file_exists(settings['fastq'])
         except AssertionError:
+            curr_DIR = os.path.dirname( os.path.realpath(__file__) )
+            fastq_F = os.path.join( curr_DIR, 'test_data', settings['fastq'] )
+            print fastq_F
+            assert( os.path.exists( fastq_F ) )
             print "\nERROR: FASTQ ({}) does not exist".format(
                         settings['fastq'] )
             print "\t-> Change fastq path in {}\n\n".format( self.settings_file )
