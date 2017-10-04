@@ -21,7 +21,7 @@ import RBNS_utils
 import RBNS_settings
 import RBNS_cluster_utils
 import RBNS_lib
-#import RBNS_plots
+import RBNS_plots
 #import RBNS_kmers_by_position
 #import run_RBNS_logos
 #import RBNS_folding
@@ -63,6 +63,7 @@ class Bnse:
             self.get_nt_freqs_by_position()
 
         self.make_tables()
+        self.make_plots()
 
 
 
@@ -1625,6 +1626,87 @@ class Bnse:
 
 
 
+
+    def make_plots( self ):
+        """
+        - Makes the desired plots
+        """
+        RBNS_utils.make_dir( self.rdir_path('plots') )
+
+        #### Make a histogram density of R values
+        #self.make_density_of_R_values_and_cluster_libs_on_Rs()
+
+        #### Make CDF plots of the presence fractions
+        #self.get_presence_fraction_each_lib()
+        #self.get_presence_frac_CDFs_all_libs_same_plot()
+
+        #### Make all of the Z-score plots
+        self.make_all_Zscore_over_concs_plots()
+
+        #### Make CDF plots of the C+G & A+U content
+        self.make_CDFs_of_CG_content()
+
+        #### Make tables & plots of kmers by position within reads
+        if self.settings.get_ks('by_position'):
+            self.plot_sig_enriched_kmers_KL_div_by_position(
+                    R_Zscore_for_sig = 2. )
+            self.plot_sig_enriched_kmers_KL_div_by_position(
+                    R_Zscore_for_sig = 3. )
+            self.plot_sig_enriched_kmers_KL_div_by_position(
+                    R_Zscore_for_sig = "least" )
+            self.plot_kmers_highest_KL_div_by_position_all_libraries()
+            self.plot_adapter_kmers_KL_div_by_position()
+
+        if (self.settings.get_property('nt_freqs_by_position') == True):
+            self.make_nt_freqs_by_position_plot()
+
+
+
+    def make_all_Zscore_over_concs_plots( self,
+            remake_plots = False ):
+        """
+        For each enriched kmer (at all Z-score thresholds that tables are made
+            for), plots its Z-score over the various concentrations to determine
+            which kmers share the same concentration profile as the top kmer
+        """
+        table_DIR = self.rdir_path( 'tables/enrichments' )
+        plots_DIR = self.rdir_path( 'plots' )
+
+        Rs_Fs_L = glob.glob( os.path.join( table_DIR,
+            "{0}_enrichment_R*Zscore*in*txt".format(
+                self.settings.get_property('protein_name') ) ) )
+        for R_F in Rs_Fs_L:
+
+            k = int( R_F.split("mers")[0][-1] )
+            if k not in [4, 5, 6, 7]:
+                continue
+
+            num_kmers = 0
+            with open( R_F ) as f:
+                next(f)
+                for line in f:
+                    kmer = line.strip().split('\t')
+                    num_kmers += 1
+            #### If there are NO kmers or if there are more than 100 kmers,
+            ####    pass
+            if ( num_kmers == 0 ) or ( num_kmers > 100 ):
+                continue
+
+            out_DIR = os.path.join( R_F.split("/tables")[0],
+                    "plots/Z_score_over_concs" )
+            out_basename = os.path.basename( R_F ).split( ".txt" )[0] +\
+                    ".Zscore_of_R_over_concs.pdf"
+            out_F = os.path.join( out_DIR, out_basename )
+
+            if ( not os.path.exists( out_F ) ) or remake_plots:
+
+                print "\nMaking for: {}\n".format( R_F )
+                RBNS_plots.make_plot_of_Zscores_from_enrichments_txt_F(
+                        R_F )
+
+
+
+
     ###########################################################################
     ################################# < COUNTS > ##############################
 
@@ -1750,7 +1832,7 @@ class Bnse:
 
     def rdir_path(self, *args):
         """ the Results directory """
-        return os.path.join(self.settings.get_rdir(), *args)
+        return os.path.join( self.settings.get_rdir(), *args)
 
 
     def get_barcode_match(self, barcode, barcodes):

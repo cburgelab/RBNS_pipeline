@@ -38,8 +38,11 @@ def make_dir( dirname ):
     if not os.path.exists(dirname):
         try:
             os.makedirs(dirname)
+            return True
         except:
             print 'The directory was made by another thread extremely recently.'
+            return False
+    return True
 
 
 def aopen( F, mode = 'r' ):
@@ -250,6 +253,24 @@ def B_factor(R, k, read_len):
     return ((4. ** k) - 1) * (read_len - k + 1 ) * (R - 1) /\
             ((4. ** k) + read_len - k - (R * (read_len - k + 1)))
 
+
+
+
+def yield_kmers_not_containing_kmer_to_ignore(
+        k,
+        kmers_to_ignore_L ):
+    """
+     An iterater to all kmers of length k in alphabetical order, but returning
+        only those kmers that DON'T contain any of the kmers_to_ignore_L
+    """
+    for kmer in yield_kmers( k ):
+        found_any = False
+        for sub_kmer in kmers_to_ignore_L:
+            if (kmer.find( sub_kmer ) != -1):
+                found_any = True
+                break
+        if (found_any == False):
+            yield kmer
 
 
 

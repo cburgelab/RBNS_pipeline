@@ -48,7 +48,7 @@ class RBNS_settings:
             raise  ValueError('cannot find %s' % property)
 
     def get_rdir(self):
-        RBNS_utils.make_dir(self.rdir)
+        RBNS_utils.make_dir( self.rdir )
         return self.rdir
 
     def get_edir(self):
@@ -280,8 +280,8 @@ class RBNS_settings:
         #### Make sure that the results dir. can be made; if not, make
         ####    it one directory up from the pipeline directory
         self.rdir = settings['results_dir']
-        made_DIR = RBNS_utils.make_dir(self.rdir)
-        print made_DIR
+        made_DIR = RBNS_utils.make_dir( self.rdir )
+        print "made_DIR: {}".format( made_DIR )
         if not made_DIR:
             curr_DIR = os.path.dirname( os.path.realpath(__file__) )
             parent_DIR = os.path.dirname( curr_DIR )
