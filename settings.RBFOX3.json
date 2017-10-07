@@ -19,7 +19,7 @@ naive_max_once_count = False
 
 kmers_to_ignore = []
 
-ks_to_test_naive = [5, 6]
+ks_to_test_naive = [5]
 ks_to_test_stream = [5]
 ks_to_test_by_position = [5]
 ks_to_test_naive_max_once = []
@@ -42,4 +42,6 @@ make_unique_reads_F = False
 [ output ]
 results_dir = /net/utr/data/atf/pfreese/test/RBFOX3_testdata
 user = pfreese
+
+weblogo_PATH = /home/pfreese/software/weblogo_2
 

@@ -1,5 +1,5 @@
-numpy
-scipy
-matplotlib
-simplejson
-PyPDF2
+matplotlib==1.4.3
+Pillow==4.3.0
+numpy==1.13.3
+scipy==1.0.0rc1
+simplejson==3.11.1

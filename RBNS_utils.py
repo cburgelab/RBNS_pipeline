@@ -3,8 +3,8 @@ import os, pprint
 import operator
 import itertools
 import gzip
-#import subprocess
-#import numpy as np
+import subprocess
+import numpy as np
 #import time
 #from scipy import stats
 from math import pow as power
@@ -271,6 +271,51 @@ def yield_kmers_not_containing_kmer_to_ignore(
                 break
         if (found_any == False):
             yield kmer
+
+
+
+
+def KL_divergence(
+        p_L,
+        q_L ):
+    """
+    - Takes two lists (must be the same length and composed of int/floats)
+        and returns the KL divergence: KL(p||q)
+    """
+    sum_p = float( sum( p_L ) )
+    sum_q = float( sum( q_L ) )
+
+    p = [x/sum_p for x in p_L]
+    q = [x/sum_q for x in q_L]
+
+    p = np.asarray(p, dtype=np.float)
+    q = np.asarray(q, dtype=np.float)
+
+    return np.sum(np.where(p != 0, p * np.log(p / q), 0))
+
+
+
+
+
+def return_num_lines_in_F( F ):
+    """
+    - Returns an integer of the number of lines in the file F
+    """
+    if ( F[-3:] == '.gz' ):
+        p = subprocess.Popen(['zgrep', '-Ec', '$', F],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE )
+    else:
+        p = subprocess.Popen(['wc', '-l', F],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE )
+    output, err = p.communicate()
+    if p.returncode != 0:
+        raise IOError(err)
+    return int(output.strip().split()[0])
+
+
+
 
 
 

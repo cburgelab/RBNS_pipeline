@@ -15,15 +15,16 @@ import numpy as np
 #import scipy.stats
 #import matplotlib.pyplot as plt
 
-#import file_IO
+import file_IO
 import streaming_convergence
 import RBNS_utils
 import RBNS_settings
 import RBNS_cluster_utils
 import RBNS_lib
 import RBNS_plots
-#import RBNS_kmers_by_position
-#import run_RBNS_logos
+import RBNS_kmers_by_position
+#import logos.run_RBNS_logos
+from logos.run_RBNS_logos import run_multiple_logos
 #import RBNS_folding
 #import RBNS_fold_split_reads
 #import RBNS_clustering
@@ -63,7 +64,11 @@ class Bnse:
             self.get_nt_freqs_by_position()
 
         self.make_tables()
-        self.make_plots()
+        #self.make_plots()
+
+        #### Logos
+        if ( len(settings.get_property('ks_to_test_logos')) > 0 ):
+            self.make_logos()
 
 
 
@@ -1640,11 +1645,8 @@ class Bnse:
         #self.get_presence_fraction_each_lib()
         #self.get_presence_frac_CDFs_all_libs_same_plot()
 
-        #### Make all of the Z-score plots
-        self.make_all_Zscore_over_concs_plots()
-
         #### Make CDF plots of the C+G & A+U content
-        self.make_CDFs_of_CG_content()
+        #self.make_CDFs_of_CG_content()
 
         #### Make tables & plots of kmers by position within reads
         if self.settings.get_ks('by_position'):
@@ -1654,8 +1656,8 @@ class Bnse:
                     R_Zscore_for_sig = 3. )
             self.plot_sig_enriched_kmers_KL_div_by_position(
                     R_Zscore_for_sig = "least" )
-            self.plot_kmers_highest_KL_div_by_position_all_libraries()
-            self.plot_adapter_kmers_KL_div_by_position()
+            #self.plot_kmers_highest_KL_div_by_position_all_libraries()
+            #self.plot_adapter_kmers_KL_div_by_position()
 
         if (self.settings.get_property('nt_freqs_by_position') == True):
             self.make_nt_freqs_by_position_plot()
@@ -1675,9 +1677,14 @@ class Bnse:
         Rs_Fs_L = glob.glob( os.path.join( table_DIR,
             "{0}_enrichment_R*Zscore*in*txt".format(
                 self.settings.get_property('protein_name') ) ) )
+
         for R_F in Rs_Fs_L:
 
+            print R_F
+
             k = int( R_F.split("mers")[0][-1] )
+            print k
+
             if k not in [4, 5, 6, 7]:
                 continue
 
@@ -1687,16 +1694,21 @@ class Bnse:
                 for line in f:
                     kmer = line.strip().split('\t')
                     num_kmers += 1
+
+            print "num_kmers: {}".format( num_kmers )
             #### If there are NO kmers or if there are more than 100 kmers,
             ####    pass
             if ( num_kmers == 0 ) or ( num_kmers > 100 ):
                 continue
+            print "\n\n\n"
 
             out_DIR = os.path.join( R_F.split("/tables")[0],
                     "plots/Z_score_over_concs" )
             out_basename = os.path.basename( R_F ).split( ".txt" )[0] +\
                     ".Zscore_of_R_over_concs.pdf"
             out_F = os.path.join( out_DIR, out_basename )
+
+            print "\tPUTATITIVE: {}".format( out_F )
 
             if ( not os.path.exists( out_F ) ) or remake_plots:
 
@@ -1705,6 +1717,574 @@ class Bnse:
                         R_F )
 
 
+    def plot_sig_enriched_kmers_KL_div_by_position( self,
+            R_Zscore_for_sig = 3. ):
+        """
+        - Analyzes the read-position distribution of each kmer in each of the
+            barcode/libraries using the analyze_freqs_by_position_one_barcodes()
+            function above, writing out a .txt for each library listing kmers by
+            descending KL Divergence of
+            (Uniform across read || Observed freqs. across read)
+        """
+        if (type( R_Zscore_for_sig ) is float):
+            std_descrip = "{0:.1f}std".format( R_Zscore_for_sig )
+        elif (type( R_Zscore_for_sig ) is str):
+            std_descrip = "least"
+        ks_L = self.settings.get_ks( 'by_position' )
+
+        #### See if this PDF already exists; if so, skip it
+        out_DIR = os.path.join( self.settings.get_rdir(), "plots/by_position" )
+        RBNS_utils.make_dir( out_DIR )
+        all_exist = True
+        for k in ks_L:
+            out_basename = "{0}mers.sig_R_{1}.KL_div_of_freqs_across_read.pdf".format(
+                    k, std_descrip )
+            out_F = os.path.join( out_DIR, out_basename )
+            if (os.path.exists( out_F ) == False):
+                all_exist = False
+
+            by_pos_DIR = os.path.join( self.settings.get_rdir(),
+                    "tables/by_position" )
+            abs_freqs_basename = "*.{0}mers.sig_R_{1}.abs_freqs_across_read.pdf".format(
+                k, std_descrip )
+            if ( len( glob.glob( os.path.join( by_pos_DIR, abs_freqs_basename ) ) ) == 0 ):
+                all_exist = False
+
+        #### If all of the files already exist, don't remake them
+        if all_exist:
+            return
+
+        figs_Ls_by_k_D = {}
+        max_abs_log2_value_by_k_D = {}
+        for k in ks_L:
+            figs_Ls_by_k_D[k] = []
+            max_abs_log2_value_by_k_D[k] = 0
+
+        for lib in self.libs:
+
+            #### First go through all of the libraries and ONLY get the maximum
+            ####    log2 value plotted for each lib, and get the maximum over all
+            ####    libs, so that the 2nd time this is done, the colormap scale
+            ####    can be the same for all of the libs
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_library(
+                self.settings.get_property( "protein_name" ),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                make_output_Fs = False )
+
+        #### Get the most enriched kmers, in descending enrichment order
+        ####    - The most enriched conc
+        enriched_kmers_Ls_by_k_D = {}
+        least_enriched_kmers_Ls_by_k_D = {}
+        for k in ks_L:
+            tables_DIR  = os.path.join( self.settings.get_rdir(), "tables/enrichments" )
+            table_basename = "{0}_enrichment_R.{1}mers.txt".format(
+                    self.settings.get_property( "protein_name" ),
+                    k )
+            #### Get the enrichments .txt file
+            R_txt_F = os.path.join( tables_DIR, table_basename )
+            #### Get the list of sig. enriched kmers using the helper function in
+            ####    file_IO.py
+            if (type( R_Zscore_for_sig ) is float):
+                returned_D = file_IO.get_sig_enriched_kmers_from_txt_R_F(
+                        R_txt_F,
+                        num_std_for_sig = R_Zscore_for_sig )
+                sig_enriched_kmers_L = returned_D["sig_enriched_kmers_L"]
+
+            elif (type( R_Zscore_for_sig ) is str):
+                returned_D = file_IO.get_least_enriched_kmers_from_txt_R_F(
+                        R_txt_F,
+                        num_to_return = 25 )
+                sig_enriched_kmers_L = returned_D["least_enriched_kmers_L"]
+
+            #### Get the 10 kmers w/ the lowest enrichments
+            least_R_returned_D = file_IO.get_least_enriched_kmers_from_txt_R_F(
+                    R_txt_F,
+                    num_to_return = 10 )
+            least_enriched_kmers_Ls_by_k_D[k] = least_R_returned_D['least_enriched_kmers_L']
+
+            enriched_kmers_Ls_by_k_D[k] = sig_enriched_kmers_L
+
+        for lib in self.libs:
+            #### First go through all of the libraries and ONLY get the maximum
+            ####    log2 value plotted for each lib, and get the maximum over all
+            ####    libs, so that the 2nd time this is done, the colormap scale
+            ####    can be the same for all of the libs
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
+                enriched_kmers_Ls_by_k_D,
+                self.settings.get_property('protein_name'),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                ordered_kmers_description_fnames = std_descrip,
+                make_output_Fs = False)
+
+            #### get the max_abs_log2 for each k
+            for k in ks_L:
+                #### If there were no sig. kmers
+                try:
+                    max_abs_log2_value_by_k_D[k] = max(
+                        max_abs_log2_value_by_k_D[k], returned_D[k]["max_abs_log2_plotted"])
+                except KeyError:
+                    pass
+
+        ###### NOW GO THROUGH AND ACTUALLY MAKE THE PLOTS
+        for lib in self.libs:
+
+            #pprint.pprint( enriched_kmers_Ls_by_k_D )
+
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
+                enriched_kmers_Ls_by_k_D,
+                self.settings.get_property('protein_name'),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                ordered_kmers_description_fnames = std_descrip,
+                make_output_Fs = True,
+                max_log2_val_colormap = max_abs_log2_value_by_k_D[k] )
+
+            #### add this figs to their respective figs_L
+            for k in ks_L:
+                try:
+                    figs_Ls_by_k_D[k].append( returned_D[k]["fig"] )
+                #### If there were no sig. kmers
+                except KeyError:
+                    pass
+
+
+        #### Make a composite out_F of all of the figs
+        for k in ks_L:
+            ################## < ABSOLUTE RATIO OF KMER FREQS > ###############
+            conc_for_fastqs_L = [lib.get_conc_for_fastq() for lib in self.libs]
+            #### First, DON'T plot, but just get the max. log_2(R) plotted
+            ####    over all libs
+            returned_D = RBNS_kmers_by_position.plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
+                    enriched_kmers_Ls_by_k_D,
+                    least_enriched_kmers_Ls_by_k_D,
+                    self.settings.get_property('protein_name'),
+                    self.settings.get_rdir(),
+                    conc_for_fastqs_L,
+                    ks_L,
+                    ordered_kmers_description_fnames = std_descrip,
+                    make_output_Fs = False )
+            #### Now, MAKE the plot
+            RBNS_kmers_by_position.plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
+                    enriched_kmers_Ls_by_k_D,
+                    least_enriched_kmers_Ls_by_k_D,
+                    self.settings.get_property('protein_name'),
+                    self.settings.get_rdir(),
+                    conc_for_fastqs_L,
+                    ks_L,
+                    ordered_kmers_description_fnames = std_descrip,
+                    make_output_Fs = True,
+                    max_log2_val_colormap = returned_D[k]['max_abs_log2_plotted'] )
+            ################# </ ABSOLUTE RATIO OF KMER FREQS > ###############
+            out_basename = "{0}mers.sig_R_{1}.KL_div_of_freqs_across_read.pdf".format(
+                    k, std_descrip )
+            out_F = os.path.join( out_DIR, out_basename )
+            RBNS_plots.plot_multiple_inOnePDF(
+                    figs_Ls_by_k_D[k],
+                    out_F )
+
+
+    def make_nt_freqs_by_position_plot( self ):
+        """
+        - Makes a scatter of the nt frequencies at each position in the read
+        """
+
+        out_DIR = os.path.join( self.settings.get_rdir(), "plots" )
+        out_basename = "{}_freqs_by_read_position.pdf".format(
+                self.settings.get_property( 'protein_name_for_plotting' ) )
+        out_pdf_F = os.path.join( out_DIR, out_basename )
+
+        if (os.path.exists( out_pdf_F ) == True):
+            print "{} already exists - skipping\n".format( out_pdf_F )
+            return
+
+        figs_L = []
+        input_freqs_by_pos_D = None
+
+        #### First, go through and load the freqs_by_pos_D, getting the min
+        ####    & max at any position
+        freqs_by_pos_D_by_conc_annot_D = {}
+        conc_annots_L = []
+        min_freq = 0.5
+        max_freq = 0.
+        for lib_settings in self.settings.iter_lib_settings():
+            #### Get the counts file
+            counts_pkl_F = lib_settings.counts_file( 'by_position', 1 )
+            #### Load the frequencies dictionary
+            freq_Ds_DIR = os.path.dirname( counts_pkl_F ).replace(
+                    "counts/by_position", "frequency_Ds" )
+            freq_D_basename =\
+                os.path.basename( counts_pkl_F ).rsplit( "_", 1 )[0] +\
+                    ".1mer.frequencies.by_position.pkl"
+            freq_D_F = os.path.join( freq_Ds_DIR, freq_D_basename )
+            freqs_by_pos_D = cPickle.load( open( freq_D_F ) )
+
+            conc_annot = lib_settings.return_annot()
+
+            for pos, by_nt_D in freqs_by_pos_D.iteritems():
+                for nt, freq in by_nt_D.iteritems():
+                    min_freq = min( min_freq, freq )
+                    max_freq = max( max_freq, freq )
+
+            #### The concentration annotation for the title
+            conc_annot = lib_settings.return_annot()
+            if ( conc_annot == "Input" ) or\
+                    (( lib_settings.conc_for_fastq == "0 nM") and (self.settings.get_property( "input_library_for_logos" ) != "input")):
+                conc_annots_L = ['Input'] + conc_annots_L
+                freqs_by_pos_D_by_conc_annot_D['Input'] = freqs_by_pos_D
+            else:
+                conc_annots_L.append( conc_annot )
+                freqs_by_pos_D_by_conc_annot_D[conc_annot] = freqs_by_pos_D
+
+        y_range = max_freq - min_freq
+        y_min = min_freq - (0.1 * y_range)
+        y_max = max_freq + (0.1 * y_range)
+
+        title = "{} nt. frequencies".format(
+            self.settings.get_property( 'protein_name_for_plotting' ).replace("_","\_") )
+        nt_heatmap_fig = RBNS_plots.make_rectangular_heatmap_NT_freq_across_read_all_libs(
+                freqs_by_pos_D_by_conc_annot_D,
+                conc_annots_L,
+                title = title )['fig']
+        figs_L.append( nt_heatmap_fig )
+
+        #### Now go through and make the plot
+        for conc_annot in conc_annots_L:
+
+            freqs_by_pos_D = freqs_by_pos_D_by_conc_annot_D[conc_annot]
+
+            fig = RBNS_plots.scatter_nt_freqs_by_read_position(
+                    freqs_by_pos_D,
+                    conc_annot,
+                    y_axis_min = 100 * y_min,
+                    y_axis_max = 100 * y_max,
+                    protein_name_for_plotting = self.settings.get_property(
+                        'protein_name_for_plotting' ) )
+            figs_L.append( fig )
+
+        #### Save all of the figs in out_pdf_F
+        print "\n\n Saving nucleotide frequencies by position to:"
+        print "\t", out_pdf_F
+        RBNS_plots.plot_multiple_inOnePDF(
+                figs_L,
+                out_pdf_F )
+
+
+
+
+
+    def plot_adapter_kmers_KL_div_by_position( self ):
+        """
+        - Analyzes the read-position distribution of each adapter kmer in each
+            of the barcode/libraries
+        """
+        ks_L = self.settings.get_ks( 'by_position' )
+        adapters_L = self.settings.get_property('adapter_sequences_l')
+
+        #### See if this PDF already exists; if so, skip it
+        out_DIR = os.path.join( self.settings.get_rdir(), "plots/by_position" )
+        RBNS_utils.make_dir( out_DIR )
+        all_exist = True
+        for k in ks_L:
+            out_basename = "{0}mers.Adapters.KL_div_of_freqs_across_read.pdf".format(
+                    k )
+            out_F = os.path.join( out_DIR, out_basename )
+            if (os.path.exists( out_F ) == False):
+                all_exist = False
+        if (all_exist == True):
+            return
+
+        figs_Ls_by_k_D = {}
+        max_abs_log2_value_by_k_D = {}
+        for k in ks_L:
+            figs_Ls_by_k_D[k] = []
+            max_abs_log2_value_by_k_D[k] = 0
+
+        #### A dictionary containing ALL kmers from both adapters (for simply
+        ####    getting the maximum value)
+        adapter_kmer_Ls_by_k_D = {}
+        ####    A dictionary containing each
+        adapter_kmer_Ls_by_adaptidx_k_D = {}
+        for i in range( len( adapters_L ) ):
+            adapter_kmer_Ls_by_adaptidx_k_D[i] = {}
+        for k in ks_L:
+            adapter_kmer_Ls_by_k_D[k] = []
+            for adapter_idx, adapter_seq in enumerate( adapters_L ):
+                adapter_kmer_Ls_by_adaptidx_k_D[adapter_idx][k] = []
+                for start_pos in range( len( adapter_seq ) - k + 1 ):
+                    adapter_kmer = adapter_seq[start_pos:(start_pos + k)]
+                    adapter_kmer_Ls_by_k_D[k].append( adapter_kmer )
+                    adapter_kmer_Ls_by_adaptidx_k_D[adapter_idx][k].append(
+                            adapter_kmer )
+
+        for lib in self.libs:
+            #### First go through all of the libraries and ONLY get the maximum
+            ####    log2 value plotted for each lib, and get the maximum over all
+            ####    libs, so that the 2nd time this is done, the colormap scale
+            ####    can be the same for all of the libs
+
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
+                adapter_kmer_Ls_by_k_D,
+                self.settings.get_property('protein_name'),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                make_output_Fs = False )
+
+            #### get the max_abs_log2 for each k
+            for k in ks_L:
+                max_abs_log2_value_by_k_D[k] = max(
+                    max_abs_log2_value_by_k_D[k],
+                    returned_D[k]["max_abs_log2_plotted"] )
+
+        ###### NOW GO THROUGH AND ACTUALLY MAKE THE PLOTS
+        for lib in self.libs:
+
+            #### Make a separate plot for each adapter sequence
+            for adapter_idx, adapter_seq in enumerate( adapters_L ):
+
+                returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
+                    adapter_kmer_Ls_by_adaptidx_k_D[adapter_idx],
+                    #self.settings.get_property('protein_name_for_plotting'),
+                    self.settings.get_property('protein_name'),
+                    self.settings.get_rdir(),
+                    lib.get_conc_for_fastq(),
+                    ks_L,
+                    ordered_kmers_description_fnames = "Adapter {}".format(
+                        adapter_idx + 1),
+                    make_output_Fs = True,
+                    max_log2_val_colormap = max_abs_log2_value_by_k_D[k])
+
+                #### add this figs to their respective figs_L
+                for k in ks_L:
+                    figs_Ls_by_k_D[k].append( returned_D[k]["fig"] )
+
+        #### Make a composite out_F of all of the figs
+        for k in ks_L:
+            out_basename = "{0}mers.Adapters.KL_div_of_freqs_across_read.pdf".format(
+                    k )
+            out_F = os.path.join( out_DIR, out_basename )
+            RBNS_plots.plot_multiple_inOnePDF(
+                    figs_Ls_by_k_D[k],
+                    out_F )
+
+
+
+    def plot_kmers_highest_KL_div_by_position_all_libraries( self ):
+        """
+        - Analyzes the read-position distribution of each kmer in each of the
+            barcode/libraries using the analyze_freqs_by_position_one_barcodes()
+            function above, writing out a .txt for each library listing kmers by
+            descending KL Divergence of
+            (Uniform across read || Observed freqs. across read)
+        """
+        ks_L = self.settings.get_ks( 'by_position' )
+
+        #### See if these PDFs already exists; if so, skip making them
+        out_DIR = os.path.join( self.settings.get_rdir(), "plots/by_position" )
+        RBNS_utils.make_dir( out_DIR )
+        all_exist = True
+        for k in ks_L:
+            out_basename = "{0}mers.greatest_KL_div_of_freqs_across_read.pdf".format( k )
+            out_F = os.path.join( out_DIR, out_basename )
+            if (os.path.exists( out_F ) == False):
+                all_exist = False
+        if (all_exist == True):
+            return
+        figs_Ls_by_k_D = {}
+        for k in ks_L:
+            figs_Ls_by_k_D[k] = []
+
+        ##### GO through each lib and only get the max. absolute log2 value; DON'T
+        #####   many any plots
+        max_abs_log2_value_by_k_D = {}
+        for k in ks_L:
+            max_abs_log2_value_by_k_D[k] = 0
+
+        for lib in self.libs:
+
+            #### First go through all of the libraries and ONLY get the maximum
+            ####    log2 value plotted for each lib, and get the maximum over all
+            ####    libs, so that the 2nd time this is done, the colormap scale
+            ####    can be the same for all of the libs
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_library(
+                self.settings.get_property( "protein_name" ),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                make_output_Fs = False)
+
+            #### get the max_abs_log2 for each k
+            for k in ks_L:
+                max_abs_log2_value_by_k_D[k] = max(
+                    max_abs_log2_value_by_k_D[k], returned_D[k]["max_abs_log2_plotted"])
+
+        ###### NOW GO THROUGH AND ACTUALLY MAKE THE PLOTs
+        for lib in self.libs:
+            #### First go through all of the libraries and ONLY get the maximum
+            ####    log2 value plotted for each lib, and get the maximum over all
+            ####    libs, so that the 2nd time this is done, the colormap scale
+            ####    can be the same for all of the libs
+            returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_library(
+                self.settings.get_property( "protein_name" ),
+                self.settings.get_rdir(),
+                lib.get_conc_for_fastq(),
+                ks_L,
+                make_output_Fs = True,
+                max_log2_val_colormap = max_abs_log2_value_by_k_D[k] )
+
+            #### add this figs to their respective figs_L
+            for k in ks_L:
+                figs_Ls_by_k_D[k].append( returned_D[k]["fig"] )
+
+        #### Make a composite out_F of all of the figs
+        for k in ks_L:
+            out_basename = "{0}mers.greatest_KL_div_of_freqs_across_read.pdf".format(
+                    k )
+            out_F = os.path.join( out_DIR, out_basename )
+            RBNS_plots.plot_multiple_inOnePDF(
+                    figs_Ls_by_k_D[k],
+                    out_F )
+
+
+    ###########################################################################
+    ################################# < LOGOS > ###############################
+
+
+    def make_logos( self ):
+        """
+        - Makes logos using the functions in RBNS_logos.py
+        """
+        logos_DIR = os.path.join( self.settings.get_rdir(), "logos" )
+        RBNS_utils.make_dir( logos_DIR )
+
+        kmers_to_ignore = self.settings.get_property( "kmers_to_ignore" )
+        ignored_kmers_F = os.path.join( logos_DIR, "KMERS_IGNORED.txt" )
+        if (len(kmers_to_ignore) > 0):
+            with open( ignored_kmers_F, "w" ) as ignored_f:
+                for kmer in kmers_to_ignore:
+                    ignored_f.write( "{}\n".format( kmer ) )
+        else:
+            if os.path.exists( ignored_kmers_F ):
+                os.system( "rm {}".format( ignored_kmers_F ) )
+        RBNS_utils.make_dir( logos_DIR )
+
+        #### a config_F for this protein's input & pulldown files
+        config_F = os.path.join( logos_DIR,
+            "{0}.config_F".format(self.settings.get_property( "protein_name" )) )
+
+        with open( config_F, "w" ) as f:
+            f.write( '[ settings ]\n' )
+            f.write( 'protein_name = {}\n\n'.format(
+                self.settings.get_property( "protein_name_for_plotting" ).replace(" ","")) )
+
+            #### If there are kmers to ignore
+            if (len( kmers_to_ignore ) > 0):
+                f.write( "kmers_to_ignore = {}".format( kmers_to_ignore ) )
+
+            ##### The input & pulldown libraries
+            f.write( "\n\n[ input_files ]\n" )
+            #### Get the pulldown reads
+            ####    The most self.k2most_enriched_lib[k] or self.k2most_enriched_0nM_lib[k]
+            if ( self.settings.get_conc_for_mostenriched_analyses() == None ):
+                ks_L = self.k2most_enriched_lib.keys()
+                ks_L.sort()
+                #### the most enriched library using the lowest k's
+                most_enriched_lib = self.k2most_enriched_lib[ks_L[0]]
+            else:
+                #### Go through all of the libs
+                for lib in self.plibs:
+                    if (lib.get_conc() == self.settings.get_conc_for_mostenriched_analyses()):
+                        most_enriched_lib = lib
+
+            #### Get the string (conc_for_fastq) of the most enriched library
+            ####    (e.g., "320")
+            most_enriched_conc_for_fastq = most_enriched_lib.get_conc_for_fastq()
+            pulldown_reads_F = os.path.join( self.settings.get_rdir(),
+                    "split_reads/{0}_{1}.reads".format(
+                        self.settings.get_property( "protein_name" ),
+                        most_enriched_conc_for_fastq ) )
+            f.write( "pulldown_reads_F = {}\n".format( pulldown_reads_F ) )
+
+            #### If the input library for logos is to be "input" or "0 nM"
+            if (self.settings.get_property( "input_library_for_logos" ) == "input"):
+                input_conc_for_fastq = "input"
+            else:
+                input_conc_for_fastq = "0"
+            input_reads_F = os.path.join( self.settings.get_rdir(),
+                    "split_reads/{0}_{1}.reads".format(
+                        self.settings.get_property( "protein_name" ),
+                        input_conc_for_fastq ) )
+            f.write( "input_reads_F = {}\n".format( input_reads_F ) )
+
+            #### The output_DIR
+            f.write( "output_DIR = {}\n".format( logos_DIR ) )
+
+            #### The username ( temporary files will be made in
+            ####    /scratch/$username/ )
+            username = self.settings.get_property( 'username' )
+            f.write( "username = {}\n".format( username ) )
+
+        #### a run_logos.txt for the different k's that should be run
+        run_logos_F = os.path.join( logos_DIR, "run_logos.txt" )
+
+        with open( run_logos_F, "w" ) as f:
+            starting_line = "{0} --num-reads {1}".format(
+                    os.path.basename( config_F ),
+                    self.settings.get_property('num_reads_for_logos'))
+            #### If the RBNS counts or entire job was launched onto the
+            ####    cluster, do the same for making the logos
+            if (self.counts_on_cluster == True):
+                starting_line += " --launch-onto-cluster"
+
+            #### Go through each of the k's to make logos for
+            for k in self.settings.get_property('ks_to_test_logos'):
+                for lower_k in self.settings.get_property('lower_ks_to_test_logos'):
+                    if (lower_k > k):
+                        continue
+                    for Z_score in self.settings.get_property('z_scores_for_logos'):
+                        #### See if this logos file already exists
+                        logos_Fs_L = glob.glob( os.path.join( logos_DIR,
+                            "k_{0}_to_{1}_Zscoretokeep_{2:.1f}/consistent/*{0}mer_logos.pdf".format(
+                                    k, lower_k, Z_score ) ) )
+                        #### Only make this logo if it doesn't already exists, OR
+                        ####    if force_redo_logos is True
+                        if ( len( logos_Fs_L ) == 0 ) or\
+                                self.settings.get_property('force_redo_logos'):
+                            f.write( "{0} --starting-k {1} --ending-k {2} --Zscore-kmers-to-keep {3}\n".format(
+                                starting_line, k, lower_k, Z_score) )
+
+        #### Finally, make the logos using the function in
+        ####    run_RBNS_logos
+        print "MAKING LOGOS\n\n"
+        run_multiple_logos(
+                run_logos_F,
+                logos_DIR )
+        print "DONE MAKING LOGOS\n\n"
+
+        all_4_logos_Fs_L = []
+        for k in [5, 6]:
+            for Z_score in [2., 3.]:
+                logos_pdf_F = os.path.join( logos_DIR,
+                        "k_{0}_to_4_Zscoretokeep_{1:.1f}/consistent/{2}_{0}mer_logos.pdf".format(
+                            k, Z_score, self.settings.get_property('protein_name_for_plotting') ) )
+                if os.path.exists( logos_pdf_F ):
+                    all_4_logos_Fs_L.append( logos_pdf_F )
+
+        ##### If all 4 logos are present, combine them into 1 PDF
+        out_combined_PDF = os.path.join( logos_DIR,
+                "{0}.5_6mer.Zscore_2_3.combined.pdf".format(
+                    self.settings.get_property( "protein_name" ) ) )
+        if ( len( all_4_logos_Fs_L ) == 4 ) and not os.path.exists( out_combined_PDF ):
+            RBNS_plots.merge_4_PDFs_on_1_page(
+                    all_4_logos_Fs_L, out_combined_PDF )
+
+    ################################ </ LOGOS > ###############################
+    ###########################################################################
 
 
     ###########################################################################
@@ -2220,6 +2800,16 @@ def main():
 
 
 if __name__ == '__main__':
+
+    #if __package__ is None:
+    #    #print sys.path
+    #    from os import sys, path
+    #    this_DIR = os.path.dirname(path.abspath(__file__))
+    #    #print this_DIR
+    #    if this_DIR not in sys.path:
+    #        sys.path.prepend( this_DIR )
+
+    #print sys.path
     main()
 
 

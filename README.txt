@@ -28,7 +28,7 @@
 		- simplejson
 
 	- Optional dependencies for additional functionalities:
-		- WebLogo3 command line executable (tested with WebLogo 3.3: https://pypi.python.org/pypi/weblogo/3.3)
+		- WebLogo3 command line executable on your $PATH (tested with WebLogo 3.3: https://pypi.python.org/pypi/weblogo/3.3)
 		- RNAfold command line executable (tested with RNAfold 2.1.6: https://www.tbi.univie.ac.at/RNA/index.html)
 
 

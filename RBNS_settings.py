@@ -101,7 +101,7 @@ class RBNS_settings:
                 'mismatches_allowed_in_barcode': 0,
                 'naive_count': True,
                 'naive_max_once_count': False,
-                'nt_freqs_by_position': False,
+                'nt_freqs_by_position': True,
                 'num_reads_for_logos': 0.5,
                 #### adapter_sequences_l should be the DNA, not RNA, template adapters
                 'adapter_sequences_l': ["CCTTGACACCCGAGAATTCCA",
@@ -111,6 +111,7 @@ class RBNS_settings:
                 'rna_3p_adapter': "TGGAATTCTCGGGTGTCAAGG",
                 'stream_count': False,
                 'temp': 4,
+                'weblogo_path': '',
                 'z_scores_for_logos': [3.] }
 
         int_keys = [
@@ -314,6 +315,15 @@ class RBNS_settings:
                     float( settings['conc_for_mostenriched_analyses'].strip('"').strip("'") )
         except KeyError:
             self.settings['conc_for_mostenriched_analyses'] = None
+
+        ##### Add the command line executable weblogo to the $PATH, so it
+        ####    can be called from the command line when making logos
+        if ( self.settings['weblogo_path'] != '' ) and\
+                self.settings['weblogo_path'] not in os.environ["PATH"]:
+            os.environ["PATH"] = self.settings['weblogo_path'] +\
+                    ":" + os.environ["PATH"]
+
+        print os.environ["PATH"]
 
         print "SETTINGS:\n"
         pprint.pprint( settings )
