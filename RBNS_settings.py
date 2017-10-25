@@ -88,6 +88,7 @@ class RBNS_settings:
                 'begin_barcode_symb': '#',
                 'by_position_count': False,
                 'end_barcode_symb': '/',
+                'fold_all_or_mostenrichedconc_only': 'most_enriched_only',
                 'force_by_position_recount': False,
                 'force_naive_max_once_recount': False,
                 'force_naive_recount': False,

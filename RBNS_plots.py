@@ -1431,6 +1431,35 @@ def plot_stacked_bargraph_with_logos(
 
 
 
+def merge_4_PDFs_on_1_page(
+        PDFs_L,
+        out_F ):
+    """
+    - Merges 4 PDFs (absolute paths to PDFs in PDFs_L into
+        out_F
+
+        PDF_1   PDF_2
+        PDF_3   PDF_4
+
+    """
+    from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
+    from PyPDF2.generic import RectangleObject
+    from pdfnup import generateNup
+
+    output = PdfFileWriter()
+
+    for F in PDFs_L[:4]:
+        print F
+        input = PdfFileReader( file( F , "rb") )
+        img = input.getPage(0)
+        output.addPage( img )
+
+    outputStream = file( out_F , "wb")
+    output.write(outputStream)
+    outputStream.close()
+
+    generateNup( out_F, 4 )
+
 
 
 

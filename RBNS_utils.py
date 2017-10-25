@@ -10,7 +10,7 @@ import numpy as np
 from math import pow as power
 from math import sqrt, log
 import cPickle as pickle
-#import datetime
+import datetime
 
 
 
@@ -313,6 +313,101 @@ def return_num_lines_in_F( F ):
     if p.returncode != 0:
         raise IOError(err)
     return int(output.strip().split()[0])
+
+
+month_str_by_num_D = {
+        "01": "Jan",
+        "02": "Feb",
+        "03": "Mar",
+        "04": "Apr",
+        "05": "May",
+        "06": "Jun",
+        "07": "Jul",
+        "08": "Aug",
+        "09": "Sep",
+        "10": "Oct",
+        "11": "Nov",
+        "12": "Dec" }
+
+
+
+def return_nice_datetime_str_for_filename():
+    """ '2015_02_15__14h_00m_36s' """
+    month_str = datetime.datetime.now().strftime("%m")
+
+    return datetime.datetime.now().strftime("%Y_{0}_%d__%Hh_%Mm_%Ss".format(
+        month_str_by_num_D[month_str] ) )
+
+
+
+
+def split_splitreadsF_blockidx_T_L_into_lists_max_X(
+        splitreadsF_blockidx_T_L,
+        num_max_jobs_at_one_time ):
+    """
+    - Splits up the list of tuples in splitreadsF_blockidx_T_L into multiple
+        lists, each of which is max length num_max_jobs_at_one_time
+
+    - Called by fold_each_reads_by_block_F() in RBNS_main.py
+    """
+    splitreadsF_blockidx_T_Ls_L = []
+
+    this_L = []
+    for T in splitreadsF_blockidx_T_L:
+        this_L.append( T )
+        if ( len( this_L ) == num_max_jobs_at_one_time ):
+            splitreadsF_blockidx_T_Ls_L.append( this_L )
+            this_L = []
+
+    if ( len( this_L ) > 0 ):
+        splitreadsF_blockidx_T_Ls_L.append( this_L )
+
+    return splitreadsF_blockidx_T_Ls_L
+
+
+def copy_lines_lower_through_upper_to_another_F_without_N(
+        orig_F,
+        out_F,
+        lower_idx,
+        upper_idx ):
+    """
+    - Copies all lines that don't contain 'N' from orig_F to out_F
+    """
+    w_N_F = out_F + ".w_N"
+    #### Now remove the N's
+    remove_N_cmd = "grep -v 'N' {0} > {1}".format( orig_F, w_N_F )
+    os.system( remove_N_cmd )
+
+    lines_str = '"{0},{1} p"'.format( lower_idx + 1, upper_idx )
+    cmd = 'sed -n {0} {1} > {2}'.format( lines_str, w_N_F, out_F )
+    os.system( cmd )
+
+    os.system( "rm {}".format( w_N_F ) )
+
+
+
+def return_num_lines_in_F_WITHOUT_pattern( F, patt ):
+    """
+    - Returns an integer of the number of lines in the file F
+    """
+    if ( F[-3:] == '.gz' ):
+        num_lines = 0
+        with aopen( F ) as f:
+            for line in f:
+                if ( line.find( patt ) == -1 ):
+                    num_lines += 1
+        return num_lines
+    else:
+        p = subprocess.Popen(['grep', '-v', '-c', patt, F],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE )
+        output, err = p.communicate()
+        if p.returncode != 0:
+            raise IOError(err)
+        return int(output.strip().split()[0])
+
+
+
 
 
 

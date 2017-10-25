@@ -9,7 +9,7 @@ import subprocess
 import operator
 import pprint
 import time
-#import multiprocessing
+import multiprocessing
 
 import numpy as np
 #import scipy.stats
@@ -23,12 +23,11 @@ import RBNS_cluster_utils
 import RBNS_lib
 import RBNS_plots
 import RBNS_kmers_by_position
-#import logos.run_RBNS_logos
+
 from logos.run_RBNS_logos import run_multiple_logos
-#import RBNS_folding
-#import RBNS_fold_split_reads
-#import RBNS_clustering
-#import RBNS_logo_helpers
+
+import RBNS_fold_split_reads
+import folding.create_CG_matched_files
 #import RBNS_transcriptome_kmers
 
 
@@ -70,6 +69,14 @@ class Bnse:
         if ( len(settings.get_property('ks_to_test_logos')) > 0 ):
             self.make_logos()
 
+        #### Folding
+        if settings.get_property( 'fold_each_reads_f' ):
+            self.fold_each_reads_by_block_F(
+                all_or_mostenrichedconc_only = settings.get_property(
+                    'fold_all_or_mostenrichedconc_only' ) )
+            self.make_all_w_str_CG_matched_Fs(
+                    settings.get_property( 'fold_all_or_mostenrichedconc_only' ) )
+            self.combine_all_block_Fs_into_one_file()
 
 
     ###########################################################################
@@ -2317,6 +2324,326 @@ class Bnse:
     ###########################################################################
 
 
+
+    ###########################################################################
+    ################################# < FOLDING > #############################
+
+    def fold_each_reads_by_block_F( self,
+            num_reads_per_block = 1000000,
+            max_num_input_blocks = 5,
+            max_num_PD_blocks = 12,
+            num_max_jobs_at_one_time = 16,
+            all_or_mostenrichedconc_only = "all" ):
+        """
+        - Folds either:
+            1. the Input & Most Enriched conc. reads ONLY (if
+                    all_or_mostenrichedconc_only = "all" ), or
+            2. ALL concentrations
+            by blocks of 1,000,000 reads.
+        - Output:
+            - Each 'block' has an out_F like:
+                /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/w_struc/by_block/
+                    IGF2BP1_input.block_0.w_struc.reads.gz OR
+                    IGF2BP1_320.block_0.w_struc.reads.gz
+
+        """
+        assert( all_or_mostenrichedconc_only in ["all", "most_enriched_only"] )
+
+        if ( all_or_mostenrichedconc_only == "all" ):
+            reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+        elif ( all_or_mostenrichedconc_only == "most_enriched_only" ):
+            reads_Fs_annots_tuples_L =\
+                self.return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only()
+
+        splitreadsF_blockidx_T_L = []
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            num_reads_this_F = RBNS_utils.return_num_lines_in_F( split_reads_F )
+            print "\t{0:,} reads in {1}".format(
+                    num_reads_this_F, annot )
+            num_total_blocks = int( float( num_reads_this_F ) / num_reads_per_block ) + 1
+
+            out_block_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld", "by_block" )
+            RBNS_utils.make_dir( out_block_DIR )
+
+            if ( annot == "Input" ):
+                max_num_blocks = min( max_num_input_blocks, num_total_blocks )
+            else:
+                max_num_blocks = min( max_num_PD_blocks, num_total_blocks )
+
+            ##### Go through each of the blocks
+            for block_idx in range( max_num_blocks ):
+
+                start_basename = os.path.basename( split_reads_F ).split(".reads")[0] +\
+                        ".block_{}".format( block_idx )
+                out_reads_F = os.path.join( out_block_DIR,
+                        "{}.w_struc.reads.gz".format( start_basename ) )
+                making_F = out_reads_F + ".making"
+                if ( os.path.exists( out_reads_F ) or os.path.exists( making_F ) ):
+                    continue
+                with open( making_F, "w" ) as f:
+                    pass
+
+                splitreadsF_blockidx_T_L.append( ( split_reads_F, block_idx ) )
+
+        ##### Now split up the splitreadsF_blockidx_T_L so it returns lists of the
+        #####   proper length
+        splitreadsF_blockidx_T_Ls_L = RBNS_utils.split_splitreadsF_blockidx_T_L_into_lists_max_X(
+                splitreadsF_blockidx_T_L,
+                num_max_jobs_at_one_time )
+
+        for splitreadsF_blockidx_T_L_THISRUN in splitreadsF_blockidx_T_Ls_L:
+
+            jobs_L = []
+            for T in splitreadsF_blockidx_T_L_THISRUN:
+
+                split_reads_F, block_idx = T
+
+                if self.counts_on_cluster:
+                    RBNS_fold_split_reads.submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
+                            split_reads_F,
+                            self.settings.get_property('temp'),
+                            block_idx )
+                else:
+                    p = multiprocessing.Process(
+                            target = RBNS_fold_split_reads.get_Ppaired_DotBracket_andletters_for_reads_F_for_block,
+                            args = (
+                                split_reads_F,
+                                self.settings.get_property('temp'),
+                                block_idx ) )
+                    jobs_L.append( p )
+
+            #### Start each of the jobs and wait for them to finish
+            [t.start() for t in jobs_L]
+            [t.join() for t in jobs_L]
+
+
+
+    def make_all_w_str_CG_matched_Fs( self,
+            all_or_mostenrichedconc_only ):
+        """
+        - Goes through all RBPs and for those that have an input w_str F,
+            makes CG-matched files for the input & all PD files that exist (so
+            the C+G content of the PD libs matches that of the input lib)
+
+        - INPUT F is like:
+            /net/nevermind/data/nm/RBNS_results/A1CF/split_reads/w_str/
+                A1CF_input.w_struc.reads.gz
+            PD Fs are like:
+                A1CF_5.w_struc.reads.gz
+
+        - OUTPUT files are the same as the INPUT / PD files, but in the
+            w_str_CG_match/ sub_DIR instead of w_str/
+
+            /net/nevermind/data/nm/RBNS_results/A1CF/split_reads/w_str_CG_match/
+                A1CF_input.w_struc.reads.gz
+                A1CF_5.w_struc.reads.gz
+        """
+
+        assert( all_or_mostenrichedconc_only in ["all", "most_enriched_only"] )
+
+        if ( all_or_mostenrichedconc_only == "all" ):
+            reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+        elif ( all_or_mostenrichedconc_only == "most_enriched_only" ):
+            reads_Fs_annots_tuples_L =\
+                self.return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only()
+
+        pprint.pprint( reads_Fs_annots_tuples_L )
+        starting_basenames_L = [os.path.basename(tupl[0]).split('.reads')[0]\
+                for tupl in reads_Fs_annots_tuples_L]
+
+        input_conc_annot = 'input'
+
+        #### ['input', '5', '20', '80', '320', '1300'], or just
+        ####    ['input', '80'] if all_conc_or_mostR == "mostR"
+        conc_basenames_only_L = [x.split("_")[-1] for x in starting_basenames_L]
+
+        w_struc_DIR = os.path.join( self.settings.get_rdir(), 'split_reads/fld' )
+        protein = self.settings.get_property( "protein_name" )
+
+        input_exists = False
+        input_F = os.path.join( w_struc_DIR,
+                "{0}_input.w_struc.reads.gz".format( protein ) )
+        print input_F
+        input_numreads_Fs_L = glob.glob( os.path.join( w_struc_DIR,
+                "{0}_input*.num_reads.txt".format( protein ) ) )
+        if ( os.path.exists( input_F ) and ( len( input_numreads_Fs_L ) > 0 ) ):
+            input_exists = True
+
+        ##### If there's no INPUT file that exists, skip it
+        if not input_exists:
+            return
+
+        PD_Fs_L = []
+        for conc in conc_basenames_only_L:
+            if ( conc == input_conc_annot ):
+                print "{} IS INPUT CONC - SKIPPING".format( conc )
+                continue
+            print "\t{} IS a PD CONC".format( conc )
+            PD_F = os.path.join( w_struc_DIR,
+                    "{0}_{1}.w_struc.reads.gz".format( protein, conc ) )
+            PD_numreads_Fs_L = glob.glob( os.path.join( w_struc_DIR,
+                    "{0}_{1}*.num_reads.txt".format( protein, conc ) ) )
+            if ( os.path.exists( PD_F ) and ( len( PD_numreads_Fs_L ) > 0 ) ):
+                PD_Fs_L.append( PD_F )
+
+        print "INPUT F: {}".format( input_F )
+        print "PD Fs_L: {}".format( PD_Fs_L )
+
+        folding.create_CG_matched_files.make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
+            input_F,
+            PD_Fs_L,
+            len( self.settings.get_property( 'rna_5p_adapter' ) ),
+            len( self.settings.get_property( 'rna_3p_adapter' ) ) )
+
+
+
+    def combine_all_block_Fs_into_one_file( self,
+            num_reads_per_block = 1000000,
+            max_num_input_blocks = 5,
+            max_num_PD_blocks = 12,
+            combine_Fs_if_all_blocks_exist = True ):
+        """
+
+        """
+        #### Get the barcode log
+        barcode_log_F = os.path.join( self.settings.rdir,
+            'split_reads', '{}_barcode_log.txt'.format(
+                self.settings.get_property( "protein_name" ) ) )
+        assert( os.path.exists( barcode_log_F ) )
+        #### Get the number of reads in each
+        ####    {'5 nM': 26787411,
+        ####        ....
+        ####     'Input': 11921053
+        num_reads_by_concannot_D = file_IO.get_num_reads_by_barcode_and_conc_D(
+                barcode_log_F )['conc_to_numreads_D']
+        pprint.pprint( num_reads_by_concannot_D )
+
+        reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L_with_input_first()
+        pprint.pprint( reads_Fs_annots_tuples_L )
+
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            print "\n\n{0} ({1})".format( split_reads_F, annot )
+
+            start_basename_wo_block = os.path.basename( split_reads_F ).split(".reads")[0]
+
+            w_struc_DIR = os.path.join( os.path.dirname( split_reads_F ), "fld" )
+            out_block_DIR = os.path.join( w_struc_DIR, "by_block" )
+
+            if ( annot == "Input" ):
+                max_num_blocks = max_num_input_blocks
+            else:
+                max_num_blocks = max_num_PD_blocks
+
+            completed_F = os.path.basename( split_reads_F ).split(".reads")[0]
+            out_combined_F = os.path.join( w_struc_DIR,
+                    "{}.w_struc.reads.gz".format( start_basename_wo_block ) )
+            if os.path.exists( out_combined_F ):
+
+                if also_get_num_reads_of_completed_Fs:
+                    num_reads_F = os.path.join( w_struc_DIR,
+                            "{0}.*.num_reads.txt".format( start_basename_wo_block ) )
+                    if ( len( glob.glob( num_reads_F )  ) == 0 ):
+                        #num_reads = file_helpers.return_num_lines_in_F( out_combined_F )
+                        num_reads = file_helpers.return_num_lines_in_F_WITHOUT_pattern( out_combined_F, "N" )
+                        make_reads_F = os.path.join( w_struc_DIR,
+                                "{0}.{1}.num_reads.txt".format(
+                                    start_basename_wo_block, num_reads ) )
+                        with open( make_reads_F, "w" ) as f:
+                            pass
+                        with open( finished_files_F, "a" ) as finished_files_f:
+                            finished_files_f.write( make_reads_F + "\n" )
+                    else:
+                        F = glob.glob( num_reads_F )[0]
+                        print "FOUND: {}".format( F )
+                        num_reads = int( os.path.basename( F ).rsplit(".", 3)[-3] )
+                        with open( finished_files_F, "a" ) as finished_files_f:
+                            finished_files_f.write( glob.glob( F )[0] + "\n" )
+                    this_read_status = "DONE ({0:,})".format( num_reads )
+                else:
+
+                    this_read_status = "DONE"
+
+                continue
+
+            num_making = 0
+            num_finished = 0
+
+            ##### Go through each of the blocks
+            completed_block_Fs_L = []
+            for block_idx in range( max_num_blocks ):
+
+                start_basename = start_basename_wo_block +\
+                        ".block_{}".format( block_idx )
+                out_reads_F = os.path.join( out_block_DIR,
+                        "{}.w_struc.reads.gz".format( start_basename ) )
+                making_F = out_reads_F + ".making"
+                if os.path.exists( making_F ):
+                    num_making += 1
+                elif os.path.exists( out_reads_F ):
+                    num_finished += 1
+                    completed_block_Fs_L.append( out_reads_F )
+
+            print "\tnum_finished: {}".format( num_finished )
+
+            ###################################################################
+            ######### < MAKE out_combined_F IF ALL BLOCK FILES EXIST > ########
+            #### If ALL of the consituent block files exist and
+            ####    combine_Fs_if_all_blocks_exist is True, combine them
+            #if ( num_finished == max_num_blocks ) and combine_Fs_if_all_blocks_exist:
+            if ( num_finished >= 1 ) and combine_Fs_if_all_blocks_exist:
+
+                #### Get the number of TOTAL lines that are written out
+                num_lines_in_blocks = 0
+                for F in completed_block_Fs_L:
+                    num_lines_in_blocks += RBNS_utils.return_num_lines_in_F_WITHOUT_pattern( F, "N" )
+                print "num_lines_in_blocks: {0:,}".format( num_lines_in_blocks )
+                expected_num_lines = 4 * max_num_blocks * num_reads_per_block
+                print "expected_num_lines: {0}".format( expected_num_lines )
+                combine = False
+                if ( num_lines_in_blocks == expected_num_lines ):
+                    combine = True
+                else:
+                    num_orig_reads_this_conc = RBNS_utils.return_num_lines_in_F_WITHOUT_pattern( split_reads_F, "N" )
+                    #### Round down by the nearest thousand
+                    num_orig_reads_this_conc = num_orig_reads_this_conc -\
+                            (num_orig_reads_this_conc % 1000)
+                    expected_num_lines_from_num_reads = 4 * num_orig_reads_this_conc
+                    print "expected_num_lines_from_num_reads: {0}".format(
+                            expected_num_lines_from_num_reads )
+
+                    if ( num_lines_in_blocks > ( 0.99 * expected_num_lines_from_num_reads ) ):
+                        combine = True
+
+                #combine = True
+                print "combine: {}".format( combine )
+                if combine:
+                    cat_cmd = "cat "
+                    cat_cmd += " ".join( completed_block_Fs_L )
+                    cat_cmd += " > {0}".format( out_combined_F )
+                    print "\n\nMAKING\n\t{0}\nfrom its constitent {1} block files which ALL exist\n\n".format(
+                            out_combined_F, len( completed_block_Fs_L ) )
+                    os.system( cat_cmd )
+
+                    print "\tFINISHED!"
+                    continue
+            ######## </ MAKE out_combined_F IF ALL BLOCK FILES EXIST > ########
+            ###################################################################
+
+
+    ################################ </ FOLDING > #############################
+    ###########################################################################
+
+
+
     def return_reads_F_annot_tuples_L( self,
             reads_type = "original",
             sort_by_increasing_RBP_conc = False ):
@@ -2386,7 +2713,6 @@ class Bnse:
 
 
 
-
     def return_reads_F_annot_tuples_L_with_input_first( self ):
         """
         - Returns a dictionary of [(reads_F, annot), ...], with a tuple
@@ -2407,6 +2733,20 @@ class Bnse:
 
         reads_Fs_annot_tuples_L = [x[1] for x in valtosorton_tuple_T_L]
         return reads_Fs_annot_tuples_L
+
+
+
+    def return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only( self ):
+        """
+        - Returns a dictionary of [(reads_F, annot), ...], with a tuple
+            for the most enriched & Input library
+            e.g., [(reads_F, "320 nM"), (reads_F, "Input")]
+        """
+        reads_Fs_annot_tuples_L = self.return_reads_F_annot_tuples_L()
+        #### Get the annotation of the library with the highest enrichment
+        OKed_annots_L = [self.most_enriched_lib_annot_like_20_nM.replace("_", " "), "Input"]
+        return [tupl for tupl in reads_Fs_annot_tuples_L if tupl[1] in OKed_annots_L]
+
 
 
 

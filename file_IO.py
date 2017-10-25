@@ -448,6 +448,45 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
 
 
 
+def get_num_reads_by_barcode_and_conc_D(
+        barcode_log_txt_F ):
+    """
+    {'barcode_to_numreads_D': {'ACTGAT': 26787411,
+                               'CGTACG': 21423352,
+                               'GAGTGG': 27350419,
+                               'GGTAGC': 16016161,
+                               'GTTTCG': 15968650,
+                               'TCGGCA': 11921053},
+        'conc_to_numreads_D': {'5 nM': 26787411,
+                                '20 nM': 16016161,
+                                '80 nM': 27350419,
+                                '320 nM': 21423352,
+                                '1300 nM': 15968650,
+                                'Input': 11921053}}
+    """
+    barcode_to_numreads_D = {}
+    conc_to_numreads_D = {}
+
+    with open( barcode_log_txt_F ) as f:
+        next( f )
+        for line in f:
+            if ( line.find( 'total_reads' ) != -1 ):
+                return_D = {
+                        'barcode_to_numreads_D': barcode_to_numreads_D,
+                        'conc_to_numreads_D': conc_to_numreads_D }
+                return return_D
+            try:
+                barcode, conc, num_reads = line.strip().split("\t")[:3]
+                try:
+                    conc_descrip = "{} nM".format( int( float( conc ) ) )
+                except:
+                    conc_descrip = 'Input'
+                num_reads = int( num_reads.replace(",","") )
+
+                barcode_to_numreads_D[barcode] = num_reads
+                conc_to_numreads_D[conc_descrip] = num_reads
+            except:
+                pass
 
 
 
