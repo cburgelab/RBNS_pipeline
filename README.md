@@ -17,16 +17,14 @@ of SHAPE data that provides highly accurate and customizable analysis capabiliti
 
 The RBNS pipeline is designed to run on Linux. In addition, it requires the following software to be pre-installed on your computing environment:
 
-- Python
-- The [Miniconda](https://conda.io/miniconda.html) package manager
-- The [Weblogo](https://conda.io/miniconda.html)
+- Python (tested on version 2.7.11)
+- The [Miniconda](https://conda.io/miniconda.html) or [Anaconda](https://docs.anaconda.com/) package manager
+- The [Weblogo](http://weblogo.threeplusone.com/manual.html) program
 - The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program
 
 If you need help installing any of these tools, see the [detailed documentation](docs/installation.md). When installing dependencies, make sure you
 agree with the corresponding licenses of various software tools.
 
-Note that if you run SHAPEware on MacOS, you will need to manually install the [RNAstructure](https://rna.urmc.rochester.edu/RNAstructure.html) package if you would like to
-obtain pseudoknot predictions from the ShapeKnots program.
 
 ## Download and install SHAPEware
 
@@ -111,5 +109,6 @@ For any questions or comments about SHAPEware, contact Peter Freese (pfreese [at
 
 ## References
 
+- Lambert, et al. **RNA Bind-n-Seq: quantitative assessment of the sequence and structural binding specificity of RNA binding proteins** _Mol Cell_. 2014 Jun 5;54(5):887-900. doi:  [10.1016/j.molcel.2014.04.016](https://www.ncbi.nlm.nih.gov/pubmed/24837674)
 - Lambert, et al. **RNA Bind-n-Seq: quantitative assessment of the sequence and structural binding specificity of RNA binding proteins** _Mol Cell_. 2014 Jun 5;54(5):887-900. doi:  [10.1016/j.molcel.2014.04.016](https://www.ncbi.nlm.nih.gov/pubmed/24837674)
 
