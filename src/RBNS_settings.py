@@ -89,6 +89,7 @@ class RBNS_settings:
                 'by_position_count': False,
                 'end_barcode_symb': '/',
                 'fold_all_or_mostenrichedconc_only': 'most_enriched_only',
+                'fold_each_reads_f': False,
                 'force_by_position_recount': False,
                 'force_naive_max_once_recount': False,
                 'force_naive_recount': False,
@@ -224,7 +225,8 @@ class RBNS_settings:
             assert RBNS_utils.file_exists(settings['fastq'])
         except AssertionError:
             curr_DIR = os.path.dirname( os.path.realpath(__file__) )
-            fastq_F = os.path.join( curr_DIR, 'test_data', os.path.basename(settings['fastq']) )
+            fastq_F = os.path.join( os.path.dirname( curr_DIR ),
+                    'test_data', os.path.basename(settings['fastq']) )
             settings['fastq'] = fastq_F
             try:
                 assert( RBNS_utils.file_exists(settings['fastq']) )
@@ -277,6 +279,13 @@ class RBNS_settings:
                 else:
                     conc_str_for_Fnames_L.append( "{:.1f}".format( conc ) )
         settings['conc_str_for_Fnames_L'] = conc_str_for_Fnames_L
+
+        #### Make sure that a scratch_DIR was provided
+        try:
+            assert( 'scratch_dir' in settings )
+        except:
+            print "\nERROR:There must be a scratch_DIR = [temporary directory to be made] in the settings file\n"
+            exit(1)
 
         self.settings = settings
         #### Make sure that the results dir. can be made; if not, make

@@ -23,8 +23,8 @@ ks_to_test_naive = [5]
 ks_to_test_stream = [5]
 ks_to_test_by_position = [5]
 ks_to_test_naive_max_once = []
-ks_to_test_logos = []
-Z_scores_for_logos = []
+ks_to_test_logos = [5]
+Z_scores_for_logos = [3]
 
 #ks_for_genome_browser_beds = [5]
 #kmer_weights_Ls_for_genome_browser_L = [["GCATG",50.842],["GCACG",10.776]]
@@ -40,8 +40,8 @@ force_redo_logos = False
 make_unique_reads_F = False
 
 [ output ]
-results_dir = /net/utr/data/atf/pfreese/test/RBFOX3_testdata
-user = pfreese
+results_dir = /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/tst/RBFOX2_test
+scratch_dir = /nobackup1/pfreese/RBFOX2_tst
+username = pfreese
 
-weblogo_PATH = /home/pfreese/software/weblogo_2
 

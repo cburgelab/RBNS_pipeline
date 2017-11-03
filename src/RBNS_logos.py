@@ -10,7 +10,7 @@ import math, random
 import cPickle as pickle
 from math import log
 
-os.sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__)) ) )
+#os.sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__)) ) )
 
 import file_IO
 
@@ -165,11 +165,6 @@ class RBNS_motifs:
         self.num_input_pulldown_rds_to_use = num_input_pulldown_rds_to_use
 
 
-        #### The username for the scratch_DIR (/scratch/$username/)
-        username = config_D["username"]
-        self.username = username
-
-
         #### The protein name to put on plots
         try:
             protein_name_for_plotting = config_D["protein_name_for_plotting"]
@@ -198,7 +193,7 @@ class RBNS_motifs:
         #### Make a scratch directory to use, and sub_DIRs within it:
         ####    /reads_Fs
         ####    /logos
-        scratch_DIR = "/scratch/{0}".format( self.username )
+        scratch_DIR = config_D['scratch_DIR']
         self.temp_DIR = os.path.join( scratch_DIR,
                 "{0}_{1}".format( self.time_stamp, random.random()) )
 

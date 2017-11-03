@@ -24,10 +24,10 @@ import RBNS_lib
 import RBNS_plots
 import RBNS_kmers_by_position
 
-from logos.run_RBNS_logos import run_multiple_logos
+from run_RBNS_logos import run_multiple_logos
 
 import RBNS_fold_split_reads
-import folding.create_CG_matched_files
+import create_CG_matched_files
 #import RBNS_transcriptome_kmers
 
 
@@ -2194,7 +2194,7 @@ class Bnse:
                 f.write( "kmers_to_ignore = {}".format( kmers_to_ignore ) )
 
             ##### The input & pulldown libraries
-            f.write( "\n\n[ input_files ]\n" )
+            f.write( "\n[ input_files ]\n" )
             #### Get the pulldown reads
             ####    The most self.k2most_enriched_lib[k] or self.k2most_enriched_0nM_lib[k]
             if ( self.settings.get_conc_for_mostenriched_analyses() == None ):
@@ -2233,8 +2233,8 @@ class Bnse:
 
             #### The username ( temporary files will be made in
             ####    /scratch/$username/ )
-            username = self.settings.get_property( 'username' )
-            f.write( "username = {}\n".format( username ) )
+            scratch_DIR = self.settings.get_property( 'scratch_dir' )
+            f.write( "scratch_DIR = {}\n\n".format( scratch_DIR ) )
 
         #### a run_logos.txt for the different k's that should be run
         run_logos_F = os.path.join( logos_DIR, "run_logos.txt" )
@@ -2494,7 +2494,7 @@ class Bnse:
         print "INPUT F: {}".format( input_F )
         print "PD Fs_L: {}".format( PD_Fs_L )
 
-        folding.create_CG_matched_files.make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
+        create_CG_matched_files.make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
             input_F,
             PD_Fs_L,
             len( self.settings.get_property( 'rna_5p_adapter' ) ),

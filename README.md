@@ -18,7 +18,8 @@ of SHAPE data that provides highly accurate and customizable analysis capabiliti
 The RBNS pipeline is designed to run on Linux. In addition, it requires the following software to be pre-installed on your computing environment:
 
 - Python (tested on version 2.7.11)
-- The [Miniconda](https://conda.io/miniconda.html) or [Anaconda](https://docs.anaconda.com/) package manager
+- The [Miniconda](https://conda.io/miniconda.html) or [knaconda](https//docs.anaconda.com/) package manager
+- The [forgi](https://viennarna.github.io/forgi/) library.
 - The [Weblogo](http://weblogo.threeplusone.com/manual.html) program
 - The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program
 
