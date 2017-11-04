@@ -65,18 +65,27 @@ class Bnse:
         self.make_tables()
         #self.make_plots()
 
-        #### Logos
+        #### Runs logos
         if ( len(settings.get_property('ks_to_test_logos')) > 0 ):
             self.make_logos()
 
-        #### Folding
+        #### Perform RNA folding if requested
         if settings.get_property( 'fold_each_reads_f' ):
+            #### Folds each read library
             self.fold_each_reads_by_block_F(
                 all_or_mostenrichedconc_only = settings.get_property(
                     'fold_all_or_mostenrichedconc_only' ) )
+            #### Combine the folded files in blocks of ~1,000,000 reads into
+            ####    one file per library
+            self.combine_all_block_Fs_into_one_file()
+            #### Calculates the distribution of C+G within input reads,
+            ####    the subsamples each PD library to make a file whose PD
+            ####    reads matches the input C+G content
             self.make_all_w_str_CG_matched_Fs(
                     settings.get_property( 'fold_all_or_mostenrichedconc_only' ) )
-            self.combine_all_block_Fs_into_one_file()
+
+            self.get_subopt_sampled_DotBracket_structures_for_each_lib()
+
 
 
     ###########################################################################
@@ -2231,8 +2240,7 @@ class Bnse:
             #### The output_DIR
             f.write( "output_DIR = {}\n".format( logos_DIR ) )
 
-            #### The username ( temporary files will be made in
-            ####    /scratch/$username/ )
+            #### The scratch directory
             scratch_DIR = self.settings.get_property( 'scratch_dir' )
             f.write( "scratch_DIR = {}\n\n".format( scratch_DIR ) )
 
@@ -2347,6 +2355,8 @@ class Bnse:
                     IGF2BP1_320.block_0.w_struc.reads.gz
 
         """
+        print "\n\nEXECUTING fold_each_reads_by_block_F() in RBNS_main.py\n\n"
+
         assert( all_or_mostenrichedconc_only in ["all", "most_enriched_only"] )
 
         if ( all_or_mostenrichedconc_only == "all" ):
@@ -2407,28 +2417,31 @@ class Bnse:
                     RBNS_fold_split_reads.submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
                             split_reads_F,
                             self.settings.get_property('temp'),
-                            block_idx )
+                            block_idx,
+                            self.settings.get_property('scratch_dir') )
                 else:
                     p = multiprocessing.Process(
                             target = RBNS_fold_split_reads.get_Ppaired_DotBracket_andletters_for_reads_F_for_block,
                             args = (
                                 split_reads_F,
                                 self.settings.get_property('temp'),
-                                block_idx ) )
+                                block_idx,
+                                self.settings.get_property('scratch_dir') ) )
                     jobs_L.append( p )
 
             #### Start each of the jobs and wait for them to finish
             [t.start() for t in jobs_L]
             [t.join() for t in jobs_L]
 
+        print "\n\nFINISHED with fold_each_reads_by_block_F() in RBNS_main.py\n\n"
 
 
     def make_all_w_str_CG_matched_Fs( self,
             all_or_mostenrichedconc_only ):
         """
-        - Goes through all RBPs and for those that have an input w_str F,
-            makes CG-matched files for the input & all PD files that exist (so
-            the C+G content of the PD libs matches that of the input lib)
+        - Calculates the distribution of reads that have each # of C+G within
+            the random region in the input library, then subsets the largest
+            set of PD reads within each library that matches the input distribution
 
         - INPUT F is like:
             /net/nevermind/data/nm/RBNS_results/A1CF/split_reads/w_str/
@@ -2443,6 +2456,7 @@ class Bnse:
                 A1CF_input.w_struc.reads.gz
                 A1CF_5.w_struc.reads.gz
         """
+        print "\n\nEXECUTING make_all_w_str_CG_matched_Fs() in RBNS_main.py\n\n"
 
         assert( all_or_mostenrichedconc_only in ["all", "most_enriched_only"] )
 
@@ -2452,7 +2466,7 @@ class Bnse:
             reads_Fs_annots_tuples_L =\
                 self.return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only()
 
-        pprint.pprint( reads_Fs_annots_tuples_L )
+        #pprint.pprint( reads_Fs_annots_tuples_L )
         starting_basenames_L = [os.path.basename(tupl[0]).split('.reads')[0]\
                 for tupl in reads_Fs_annots_tuples_L]
 
@@ -2468,15 +2482,14 @@ class Bnse:
         input_exists = False
         input_F = os.path.join( w_struc_DIR,
                 "{0}_input.w_struc.reads.gz".format( protein ) )
-        print input_F
-        input_numreads_Fs_L = glob.glob( os.path.join( w_struc_DIR,
-                "{0}_input*.num_reads.txt".format( protein ) ) )
-        if ( os.path.exists( input_F ) and ( len( input_numreads_Fs_L ) > 0 ) ):
+        print "\n\nExpected input file of folded reads: {}\n\n".format( input_F )
+        if os.path.exists( input_F ):
             input_exists = True
 
         ##### If there's no INPUT file that exists, skip it
         if not input_exists:
-            return
+            print "ERROR: There's no input file of folded reads - expected {0} but it is not present".format( input_F )
+            exit(1)
 
         PD_Fs_L = []
         for conc in conc_basenames_only_L:
@@ -2486,30 +2499,40 @@ class Bnse:
             print "\t{} IS a PD CONC".format( conc )
             PD_F = os.path.join( w_struc_DIR,
                     "{0}_{1}.w_struc.reads.gz".format( protein, conc ) )
-            PD_numreads_Fs_L = glob.glob( os.path.join( w_struc_DIR,
-                    "{0}_{1}*.num_reads.txt".format( protein, conc ) ) )
-            if ( os.path.exists( PD_F ) and ( len( PD_numreads_Fs_L ) > 0 ) ):
+            if os.path.exists( PD_F ):
                 PD_Fs_L.append( PD_F )
 
-        print "INPUT F: {}".format( input_F )
-        print "PD Fs_L: {}".format( PD_Fs_L )
+        print "INPUT file of folded reads: {}".format( input_F )
+        print "PULLDOWN files, whose C+G read distributions will be matched to that of the input reads:"
+        pprint.pprint( PD_Fs_L )
+
+        RNA_5p_adapter_len = len( self.settings.get_property( 'rna_5p_adapter' ) )
+        RNA_3p_adapter_len = len( self.settings.get_property( 'rna_3p_adapter' ) )
 
         create_CG_matched_files.make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
             input_F,
             PD_Fs_L,
-            len( self.settings.get_property( 'rna_5p_adapter' ) ),
-            len( self.settings.get_property( 'rna_3p_adapter' ) ) )
+            RNA_5p_adapter_len,
+            RNA_3p_adapter_len )
 
+        print "\n\nFINISHED with make_all_w_str_CG_matched_Fs() in RBNS_main.py\n\n"
 
 
     def combine_all_block_Fs_into_one_file( self,
             num_reads_per_block = 1000000,
             max_num_input_blocks = 5,
             max_num_PD_blocks = 12,
-            combine_Fs_if_all_blocks_exist = True ):
+            combine_Fs_if_all_blocks_exist = True,
+            also_get_num_reads_of_completed_Fs = True ):
         """
+        - Given that reads have been folded in separate 'block' files, each of
+            which have num_reads_per_block, combines all of the individual
+            block files into one file
 
+        11/4/17
         """
+        print "\n\nEXECUTING combine_all_block_Fs_into_one_file() in RBNS_main.py\n\n"
+
         #### Get the barcode log
         barcode_log_F = os.path.join( self.settings.rdir,
             'split_reads', '{}_barcode_log.txt'.format(
@@ -2552,21 +2575,20 @@ class Bnse:
                     num_reads_F = os.path.join( w_struc_DIR,
                             "{0}.*.num_reads.txt".format( start_basename_wo_block ) )
                     if ( len( glob.glob( num_reads_F )  ) == 0 ):
-                        #num_reads = file_helpers.return_num_lines_in_F( out_combined_F )
-                        num_reads = file_helpers.return_num_lines_in_F_WITHOUT_pattern( out_combined_F, "N" )
+                        num_reads = RBNS_utils.return_num_lines_in_F_WITHOUT_pattern( out_combined_F, "N" )
                         make_reads_F = os.path.join( w_struc_DIR,
                                 "{0}.{1}.num_reads.txt".format(
                                     start_basename_wo_block, num_reads ) )
                         with open( make_reads_F, "w" ) as f:
                             pass
-                        with open( finished_files_F, "a" ) as finished_files_f:
-                            finished_files_f.write( make_reads_F + "\n" )
+                        #with open( finished_files_F, "a" ) as finished_files_f:
+                        #    finished_files_f.write( make_reads_F + "\n" )
                     else:
                         F = glob.glob( num_reads_F )[0]
                         print "FOUND: {}".format( F )
                         num_reads = int( os.path.basename( F ).rsplit(".", 3)[-3] )
-                        with open( finished_files_F, "a" ) as finished_files_f:
-                            finished_files_f.write( glob.glob( F )[0] + "\n" )
+                        #with open( finished_files_F, "a" ) as finished_files_f:
+                        #    finished_files_f.write( glob.glob( F )[0] + "\n" )
                     this_read_status = "DONE ({0:,})".format( num_reads )
                 else:
 
@@ -2637,6 +2659,37 @@ class Bnse:
                     continue
             ######## </ MAKE out_combined_F IF ALL BLOCK FILES EXIST > ########
             ###################################################################
+        print "\n\nFINISHED with combine_all_block_Fs_into_one_file() in RBNS_main.py\n\n"
+
+
+
+
+    def get_subopt_sampled_DotBracket_structures_for_each_lib( self ):
+        """
+
+        11/4/17
+        """
+        print "\n\nEXECUTING get_subopt_sampled_DotBracket_structures_for_each_lib() in RBNS_main.py\n\n"
+
+        reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            folded_reads_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld_CG_match" )
+            struct_gz_F = os.path.join( folded_reads_DIR,
+                "{0}.w_struc.reads.gz".format(
+                    os.path.basename(split_reads_F).split('.reads')[0] ) )
+            print struct_gz_F
+            if os.path.exists( struct_gz_F ):
+                RBNS_fold_split_reads.get_suboptimal_sampled_DotBracket_reads_F(
+                    struct_gz_F,
+                    self.settings.get_property('temp'),
+                    self.settings.get_property('scratch_dir') )
+        print "\n\nDONE with get_subopt_sampled_DotBracket_structures_for_each_lib() in RBNS_main.py\n\n"
 
 
     ################################ </ FOLDING > #############################

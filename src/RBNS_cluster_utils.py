@@ -5,10 +5,10 @@ import subprocess
 import RBNS_utils
 
 
+#### NOTE: these functions were written for a TORQUE / PBS scheduling manager
+####    (e.g., submitting jobs to a queue through qsub)
 
-
-
-
+####    - Compatability with SLURM workload manager may be forthcoming
 
 
 

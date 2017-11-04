@@ -238,7 +238,6 @@ def make_temp_reads_F(
         reads_to_use = num_reads_to_use
     elif (type( num_reads_to_use ) is float):
         assert( num_reads_to_use <= 1.0 and num_reads_to_use > 0.0 )
-        #### use the helper function in file_helpers.py
         reads_to_use = int(num_reads_to_use * total_lines_in_file)
 
 

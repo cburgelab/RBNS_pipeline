@@ -65,17 +65,24 @@ def hamming_distance(str1, str2):
 
 def iterNlines(
         inFile,
-        N ):
+        N,
+        strip_newlines = True ):
     """
     yields N lines at a time
     """
     assert ( N >= 1 )
     f = aopen(inFile)
-    lines = [f.readline() for i in range(N)]
+    if strip_newlines:
+        lines = [f.readline().strip() for i in range(N)]
+    else:
+        lines = [f.readline() for i in range(N)]
     try:
         while True:
             yield lines
-            lines = [f.readline() for i in range(N)]
+            if strip_newlines:
+                lines = [f.readline().strip() for i in range( N )]
+            else:
+                lines = [f.readline() for i in range(N)]
             if lines[0] == '':
                 break
     except IOError: pass

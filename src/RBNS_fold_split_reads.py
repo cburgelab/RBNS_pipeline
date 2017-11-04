@@ -25,13 +25,15 @@ import cPickle as pickle
 def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         in_reads_F,
         temp,
-        block_idx ):
+        block_idx,
+        starting_scratch_DIR ):
     """
     - For an in_reads_F split_reads file,
         submits a job to run the
         get_Ppaired_DotBracket_andletters_for_reads_F_for_block() function
            below
-    10/3/16
+
+    11/4/17
     """
     #### Get this file path
     filename = inspect.getframeinfo( inspect.currentframe() ).filename
@@ -45,7 +47,8 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
             'get_Ppaired_DotBracket_andletters_for_reads_F_for_block '
             '%(in_reads_F)s '
             '%(temp)s '
-            '%(block_idx)s ' % locals())
+            '%(block_idx)s '
+            '%(starting_scratch_DIR)s ' % locals())
 
     job_name = "{0}_block{1}_get_Ppaired_DotBracket_andletters_for_reads_F_for_block".format(
             os.path.basename( in_reads_F ).split(".reads")[0], block_idx )
@@ -68,10 +71,9 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         in_reads_F,
         temp,
         block_idx,
+        starting_scratch_DIR,
         num_reads_per_block = 1000000,
-        #z#fiveP_adapt = "GAGTTCTACAGTCCGACGATC",
         fiveP_adapt = "GGGGAGTTCTACAGTCCGACGATC",
-        #threeP_adapt = "TGGAATTCTCGGGTGCCAAGG",
         threeP_adapt = "TGGAATTCTCGGGTGTCAAGG",
         num_reads_to_get_status_after = 1000,
         #num_reads_to_get_status_after = 1000000,
@@ -97,8 +99,8 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
     start_basename = os.path.basename( in_reads_F ).split(".reads")[0] +\
             ".block_{}".format( block_idx )
 
-    scratch_DIR = "/scratch/pfreese/{0}_{1}".format(
-            start_basename, random.randint( 0, 100000 ) )
+    scratch_DIR = os.path.join( starting_scratch_DIR,
+            "{0}_{1}".format( start_basename, random.randint( 0, 100000 ) ) )
     os.system( "mkdir -p {}".format( scratch_DIR ) )
 
     #### If the out_DIR is different than the one simply passed in
@@ -262,8 +264,6 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
                 #    shutil.copy( scratch_reads_F, out_reads_F )
                 #    last_copy_back_time = time.time()
 
-            #if ( num_reads_covered == 100000 ):
-            #    break
 
     shutil.copyfile( scratch_reads_F, out_reads_F )
     with open( log_F, "a" ) as log_f:
@@ -298,7 +298,7 @@ def submit_get_subopt_DotBracket_reads_F_for_block(
     """
     - For an in_reads_F split_reads file,
         submits a job to run the
-        get_Ppaired_DotBracket_andletters_for_reads_F_for_block() function
+        get_subopt_DotBracket_reads_F_for_block() function
            below
     10/3/16
     """
@@ -421,7 +421,8 @@ def get_subopt_DotBracket_reads_F_for_block(
 
     reads_this_set_L = []
     num_reads_this_set = 0
-    for lines_L in RBNS_utils.iterNlines_strip( scratch_in_reads_F, 4 ):
+    for lines_L in RBNS_utils.iterNlines(
+            scratch_in_reads_F, 4, strip_newlines = True ):
 
         ############## < if this read is not to be done > #########
         #if ( abs_read_idx < lower_this_block ):
@@ -512,6 +513,132 @@ def get_subopt_DotBracket_reads_F_for_block(
     making_F = os.path.join( os.path.dirname( out_reads_F ),
         "{0}.block_{1}.subopt_DB.gz.making".format(
             os.path.basename( in_struct_gz_F ).split(".reads")[0], block_idx ) )
+    if os.path.exists( making_F ):
+        os.system( "rm {}".format( making_F ) )
+
+
+
+
+
+
+
+def get_suboptimal_sampled_DotBracket_reads_F(
+        in_struct_gz_F,
+        temp,
+        starting_scratch_DIR,
+        num_subopt_to_get = 20,
+        num_reads_to_get_status_after = 1000,
+        copy_back_every_x_seconds = 10000000 ):
+    """
+    - For an in_struct_gz_F:
+
+        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/tst/RBFOX2_test/split_reads/fld_CG_match/
+
+            RBFOX3_input.w_struc.reads.gz
+            RBFOX3_20.w_struc.reads.gz
+
+    11/4/17
+    """
+    temp = int( temp )
+
+    start_basename = os.path.basename( in_struct_gz_F ).split(".reads")[0]
+    out_DIR = os.path.join( os.path.dirname( in_struct_gz_F ),
+            "subopt_DB_{0}reads".format( num_subopt_to_get ) )
+    out_logs_DIR = os.path.join( out_DIR, "logs" )
+    os.system( "mkdir -p {}".format( out_logs_DIR ) )
+
+    out_reads_F = os.path.join( out_DIR,
+            "{}.subopt_DB.gz".format( start_basename ) )
+    if os.path.exists( out_reads_F ):
+        print "\n\t{} already exists - skipping".format( out_reads_F )
+        return
+
+    scratch_DIR = os.path.join( starting_scratch_DIR, "{0}_{1}".format(
+            start_basename, random.randint( 0, 100000 ) ) )
+    os.system( "mkdir -p {}".format( scratch_DIR ) )
+
+
+    #prev_copies_DIR = os.path.join( os.path.join( out_DIR, "prev_copy" ) )
+    #os.system( "mkdir -p {}".format( prev_copies_DIR ) )
+
+    #### copy over the reads to the scratch space
+    scratch_in_reads_F = os.path.join( scratch_DIR,
+            os.path.basename( in_struct_gz_F ) )
+    print "\n\tCopying {0} to {1}".format( in_struct_gz_F, scratch_in_reads_F )
+
+    #lower_this_block = block_idx * ( num_reads_per_block * 4 )
+    #upper_this_block = ( block_idx + 1 ) * ( num_reads_per_block * 4 )
+
+    shutil.copyfile( in_struct_gz_F, scratch_in_reads_F )
+    print "\t\tDONE"
+
+    out_F_to_append_results_to = os.path.join( scratch_DIR,
+            "{}.subopt_DB.gz".format( start_basename ) )
+    log_F = os.path.join( out_logs_DIR,
+            "{}.subopt_DB.log.txt".format( start_basename ) )
+
+    with open( log_F, "w" ) as log_f:
+        log_f.write( "Starting at: {}\n".format(
+            RBNS_utils.return_nice_datetime_str_for_filename() ) )
+
+        log_f.write( "hostname is: {}\n".format( socket.gethostname() ) )
+
+        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
+
+        log_f.write( "in_struct_gz_F: {}\n".format( in_struct_gz_F ) )
+        log_f.write( "temp: {}\n".format( temp ) )
+
+        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
+
+    num_reads_covered = 0
+    start_time = time.time()
+    last_copy_back_time = time.time()
+
+    reads_this_set_L = []
+    num_reads_this_set = 0
+    for lines_L in RBNS_utils.iterNlines(
+            scratch_in_reads_F, 4, strip_newlines = True ):
+
+        rand_RNA_seq = lines_L[0]
+        reads_this_set_L.append( rand_RNA_seq )
+        num_reads_this_set += 1
+        num_reads_covered += 1
+
+        if ( num_reads_this_set == num_reads_to_get_status_after ):
+
+            get_subopt_folding_of_reads(
+                reads_this_set_L,
+                scratch_DIR,
+                temp,
+                out_F_to_append_results_to,
+                num_to_return_for_each_read = num_subopt_to_get )
+
+            reads_this_set_L = []
+            num_reads_this_set = 0
+
+    get_subopt_folding_of_reads(
+        reads_this_set_L,
+        scratch_DIR,
+        temp,
+        out_F_to_append_results_to,
+        num_to_return_for_each_read = num_subopt_to_get )
+
+    shutil.copyfile( out_F_to_append_results_to, out_reads_F )
+    with open( log_F, "a" ) as log_f:
+        total_sec = time.time() - start_time
+        curr_pprint_str = RBNS_utils.return_nice_datetime_str_for_filename()
+        curr_str = "\nFINISHED SUCCESSFULLY! Copied {0:,} reads to {1} at {2}\n\tTook {3:,} seconds\n".format(
+                num_reads_covered,
+                out_reads_F,
+                curr_pprint_str,
+                int( total_sec ) )
+        print curr_str
+        log_f.write( curr_str )
+
+    os.system( "rm -rf {}".format( scratch_DIR ) )
+    making_F = os.path.join( os.path.dirname( out_reads_F ),
+        "{0}.subopt_DB.gz.making".format(
+            os.path.basename( in_struct_gz_F ).split(".reads")[0] ) )
     if os.path.exists( making_F ):
         os.system( "rm {}".format( making_F ) )
 
@@ -727,6 +854,7 @@ def get_MFE_DotBracket_and_symbol_over_reads(
 
 
 
+
 def get_elementstring_from_DotBracket( DotBracket_str ):
     """
     INPUT:
@@ -754,7 +882,11 @@ def get_subopt_folding_of_reads(
         out_F_to_append_results_to,
         num_to_return_for_each_read = 20 ):
     """
-    5/12/17
+    - Given a list of reads (with adapters) reads_L, will get
+        num_to_return_for_each_read suboptimal DotBracket structures sampled
+        with probabilities equal to their Boltzmann weights
+
+    11/4/17
     """
     tmp_read_fasta_F = os.path.join( scratch_DIR, "reads.fa" )
     out_F = os.path.join( scratch_DIR, "reads.out.txt" )
@@ -769,7 +901,6 @@ def get_subopt_folding_of_reads(
     os.chdir( scratch_DIR )
     fold_CMD = "RNAsubopt --temp={0} --stochBT={1} < {2} > {3}".format(
         temp, num_to_return_for_each_read, tmp_read_fasta_F, out_F )
-    #os.system("cd {0}".format( scratch_DIR ))
     # make the .ps files
     fold = subprocess.Popen( fold_CMD, shell = True )
     stdoutdata, stderrdata = fold.communicate()
@@ -777,21 +908,22 @@ def get_subopt_folding_of_reads(
     #### Now go through all of the reads
     this_read = ""
     out_f_to_append_results_to = gzip.open( out_F_to_append_results_to, 'ab' )
-    with open( out_F ) as f:
-        for line in f:
-            if ( line[0] == '>' ):
-                read_w_idx = line.strip()[1:]
-                this_read = read_by_readwindex_D[read_w_idx]
-                out_f_to_append_results_to.write( ">" + this_read + "\n" )
-            else:
-                DB_str = line.strip()
-                element_string = get_elementstring_from_DotBracket( DB_str )
-                out_f_to_append_results_to.write(
-                        element_string + "\n" )
+    for lines_L in RBNS_utils.iterNlines( out_F,
+            num_to_return_for_each_read + 2,
+            strip_newlines = True ):
+
+        this_read = lines_L[1]
+        out_f_to_append_results_to.write( ">" + this_read + "\n" )
+
+        #### Now go through all of the num_to_return_for_each_read DotBracket
+        ####    structures
+        for DB_str in lines_L[2:]:
+            element_string = get_elementstring_from_DotBracket( DB_str )
+            out_f_to_append_results_to.write(
+                    element_string + "\n" )
 
     out_f_to_append_results_to.close()
 
-    #print out_F
 
 
 
@@ -809,26 +941,6 @@ def get_subopt_folding_of_reads(
 
 
 
-def test():
-
-    scratch_DIR = "/scratch/pfreese/test_subopt"
-    os.system( "mkdir -p {}".format( scratch_DIR ) )
-    out_F = os.path.join( scratch_DIR, "reads.output.txt" )
-    reads_L = ["ATGTAATCCCCACTATATTCAACTCAAAGGTATAGCTTTA",
-            "GTGACGGAACCATGAAATACGTCTAATTTTTTGCACGATG"]
-    temp = 37
-    #get_subopt_folding_of_reads(
-    #    reads_L,
-    #    scratch_DIR,
-    #    temp,
-    #    out_F,
-    #    num_to_return_for_each_read = 20 )
-    get_subopt_DotBracket_reads_F_for_block(
-            "/net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/fld_CG_match/IGF2BP1_0.w_struc.reads.gz",
-            4,
-            0,
-            num_subopt_to_get = 20,
-            num_reads_per_block = 10000 )
 
 
 

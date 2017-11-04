@@ -1,19 +1,17 @@
 #!/usr/bin/env python
-import os
-import sys
-import time
-import gzip
-import copy
-import gzip
+import os, sys
+import time, gzip, copy, pprint
 
-os.sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__)) ) )
+import RBNS_utils
+
 
 
 def make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
         input_reads_w_str_F,
         PD_reads_w_str_Fs_L,
         fiveP_adapt_len,
-        threeP_adapt_len ):
+        threeP_adapt_len,
+        min_perc_reads_tokeep_CGbin = 4. ):
     """
     {'CGbin_normedfreqofreads_T_L': [(4, 0.011543667774174992),
                                     (5, 0.03146770413989078),
@@ -85,7 +83,7 @@ def make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
             input_reads_w_str_F,
             fiveP_adapt_len,
             threeP_adapt_len,
-            min_perc_reads_for_CGbin = 4. )
+            min_perc_reads_for_CGbin = min_perc_reads_tokeep_CGbin )
 
     #### The total number of input reads for each of the bins
     input_numreads_to_keep_by_bin_D = {}
@@ -135,7 +133,12 @@ def write_output_F_from_inputreads_and_numreadstokeepbyCG_D(
         fiveP_adapt_len,
         threeP_adapt_len ):
     """
+    - Given a pulldown folded reads file (in_reads_w_str_F), will write out
+        a new file (out_reads_w_str_F) containing a subset of reads according
+        to numreads_to_keep_by_bin_D, which dictates how many reads containing
+        each number of C+G bases should be included
 
+    11/4/17
     """
     #### If the out_reads_w_str_F already exist, PASS
     if ( os.path.exists( out_reads_w_str_F ) and\
@@ -156,7 +159,7 @@ def write_output_F_from_inputreads_and_numreadstokeepbyCG_D(
     out_f = gzip.open( out_reads_w_str_F, 'wb' )
 
     #### Get the read length
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
         read_len = len( four_lines_L[0] ) - fiveP_adapt_len - threeP_adapt_len
         break
@@ -166,7 +169,7 @@ def write_output_F_from_inputreads_and_numreadstokeepbyCG_D(
     num_reads_to_write = sum( copied_numreads_to_keep_by_bin_D.values() )
 
     #### Get the read length
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
 
         rand_read = four_lines_L[0][fiveP_adapt_len:(fiveP_adapt_len+read_len)]
@@ -203,7 +206,13 @@ def get_num_reads_by_CplusG_content(
         threeP_adapt_len,
         min_perc_reads_for_CGbin = 4. ):
     """
+    - Give a file of reads, calculates the number of reads in each C+G bin
+        (counting the number of C+G's in the random region) and determines
+        which bins will be used to match PD reads to
+    - Only C+G bins that have at least min_perc_reads_for_CGbin % of reads will
+        be used (i.e., don't want to use very lowly populated C+G bins)
 
+    11/4/17
     """
     ##['GAGTTCTACAGTCCGACGATCTGAACCGAACATATTCTACGTGGAATTCTCGGGTGCCAAGG',
     ## '0.819 0.818 0.867 0.867 0.866 0.900 0.857 0.821 0.983 0.182 0.930 0.953 0.176 0.076 0.834 0.848 0.017 0.957 0.196 0.868 0.948 0.202 0.200 0.009 0.012 0.089 0.102 0.968 0.947 0.093 0.787 0.029 0.042 0.120 0.910 0.950 0.232 0.119 0.777 0.781 0.822 0.890 0.988 0.998 0.965 0.961 0.989 0.898 0.851 0.226 0.185 0.874 0.877 0.096 0.074 0.077 0.756 0.746 0.005 0.091 0.103 0.056',
@@ -213,14 +222,14 @@ def get_num_reads_by_CplusG_content(
     start_time = time.time()
 
     #### Get the read length
-    for four_lines_L in file_helpers.iterNlines( reads_w_str_F, 4, strip_newlines = True ):
+    for four_lines_L in RBNS_utils.iterNlines( reads_w_str_F, 4, strip_newlines = True ):
         read_len = len( four_lines_L[0] ) - fiveP_adapt_len - threeP_adapt_len
         break
     for i in range( read_len + 1 ):
         numreads_by_numCG_D[i] = 0
 
     #### Go through all of the reads
-    for four_lines_L in file_helpers.iterNlines( reads_w_str_F, 4, strip_newlines = True ):
+    for four_lines_L in RBNS_utils.iterNlines( reads_w_str_F, 4, strip_newlines = True ):
         rand_read = four_lines_L[0][fiveP_adapt_len:(fiveP_adapt_len+read_len)]
         num_CG = len( [x for x in rand_read if x in ["C", "G"]] )
         numreads_by_numCG_D[num_CG] += 1
@@ -265,6 +274,11 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
         fiveP_adapt_len,
         threeP_adapt_len ):
     """
+    - Given a set of input reads (in_reads_w_str_F) and the number of reads
+        to keep for each C+G bin, gets the required number of reads in each bin
+        and writes them out to out_reads_w_str_F
+
+    11/4/17
     """
 
     #### If the out_reads_w_str_F already exist, PASS
@@ -275,7 +289,7 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
     #### Make a copy of the numreads_to_keep_by_bin_D to run down
     cp_numreads_to_keep_by_bin_D = copy.copy( numreads_to_keep_by_bin_D )
 
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
         read_len = len( four_lines_L[0] ) - fiveP_adapt_len - threeP_adapt_len
         break
@@ -287,7 +301,7 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
     num_reads_in_F_by_CG_bin_D = {}
     for CG_bin in cp_numreads_to_keep_by_bin_D:
         num_reads_in_F_by_CG_bin_D[CG_bin] = 0
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
 
         rand_read = four_lines_L[0][fiveP_adapt_len:(fiveP_adapt_len+read_len)]
@@ -297,7 +311,10 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
         except KeyError:
             pass
 
-    ##### Go through and get the lowest CG_bin factor
+    ##### Go through and get the lowest CG_bin factor - that is, which needed C+G
+    #####   bin is least populated and will be the factor multiplied by the
+    #####   values of numreads_to_keep_by_bin_D to determine how many in each
+    ####    C+G bin will __actually__ be able to be written to out_reads_w_str_F
     min_CG_factor = 1.
     any_limiting_CG_bin = 'No limiting CG bin'
     for CG_bin, num_target_reads in cp_numreads_to_keep_by_bin_D.iteritems():
@@ -326,7 +343,7 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
     out_f = gzip.open( out_reads_w_str_F, 'wb' )
 
     #### Get the read length
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
         read_len = len( four_lines_L[0] ) - fiveP_adapt_len - threeP_adapt_len
         break
@@ -335,7 +352,7 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
     num_reads_to_write = sum( copied_numreads_to_keep_by_bin_D.values() )
 
     #### Get the read length
-    for four_lines_L in file_helpers.iterNlines(
+    for four_lines_L in RBNS_utils.iterNlines(
             in_reads_w_str_F, 4, strip_newlines = True ):
 
         rand_read = four_lines_L[0][fiveP_adapt_len:(fiveP_adapt_len+read_len)]
