@@ -61,7 +61,7 @@ You can find examples of all of these files in the test_data/ folder. It is prob
 
 #### Example output: RBFOX3
 
-The complete set of output files is described in . Briefly, output should include:
+The complete set of output files is described in [here](docs/output_information.md). Briefly, output should include:
 
 - Split read files for each library
 - Enrichment tables of kmers
