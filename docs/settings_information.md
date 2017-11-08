@@ -1,19 +1,27 @@
 ![Logo](../img/RBNS_logo.png)
 
 ***
-# The settings file is a .json file that contains the required information for an RBNS experiments (e.g., file and output paths, protein name and concentrations, FASTQ barcodes), and it also tells RBNS_main.py which functionalities to perform.
+# The settings file is a .json file that contains the required information for an RBNS experiment (e.g., file and output paths, protein name and concentrations, FASTQ barcodes), and it also tells RBNS_main.py which functionalities to perform.
 
 ### REQUIRED information for each RBNS experiment
 
-The recommended use for SHAPEware-MaP is to first create a directory that contains the input files in standard locations.
-The analysis results will be placed in the same directory under specific file and folder paths. You can override this 
-behavior to some extent by giving additional arguments. Run "./analyze_shape-map.py -h" for more details. 
+## - fastq: the file that contains the 
+## - barcodes
+- read_len
+- protein_name
+- concentrations
+- temp
+- input_barcode
 
-For now, let's assume you created a directory called **my_shape_data/**
+- results_dir
+- scratch_dir
+
 
 #### REQUIRED parameter specifications
 
 Specifying each of the following in the .json file is required; if left out, an error will be immediately returned.
+
+- 
 
 
 #### OPTIONAL parameter specificiations
