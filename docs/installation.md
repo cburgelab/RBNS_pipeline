@@ -1,4 +1,4 @@
-![Logo](../img/SHAPEware-logo.png)
+![Logo](../img/RBNS_logo.png)
 
 ***
 # How to install RBNS pipeline dependencies

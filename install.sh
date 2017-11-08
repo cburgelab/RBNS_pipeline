@@ -43,7 +43,7 @@ if [ $dl_option == 'y' ] || [ $dl_option == 'Y' ]; then
 		example_data/download_files.sh
 		echo "You should now be able to test the RBNS_pipeline with the following commands:"
 		echo "source activate rbns_pipeline"
-		echo "python src/RBNS_main."
+		echo "python src/RBNS_main.py test_data/settings.RBFOX3.json"
 
 	fi
 fi
