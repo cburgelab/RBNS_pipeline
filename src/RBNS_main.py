@@ -84,7 +84,14 @@ class Bnse:
             self.make_all_w_str_CG_matched_Fs(
                     settings.get_property( 'fold_all_or_mostenrichedconc_only' ) )
 
+            ##### Get sampled suboptimal DotBracket secondary structures
+            #####   for each RNA (default: 20 structures sampled from the
+            #####   ensemble)
             self.get_subopt_sampled_DotBracket_structures_for_each_lib()
+
+            ##### Calculated the Ppaired over the top enriched kmers as well
+            ####    as flanking sequence
+            self.get_Ppaired_over_top_enriched_kmers_and_flanking()
 
 
 
@@ -2690,6 +2697,59 @@ class Bnse:
                     self.settings.get_property('temp'),
                     self.settings.get_property('scratch_dir') )
         print "\n\nDONE with get_subopt_sampled_DotBracket_structures_for_each_lib() in RBNS_main.py\n\n"
+
+
+
+    def get_Ppaired_over_top_enriched_kmers_and_flanking( self,
+            num_top_kmers_to_analyze = 10 ):
+        """
+        - Using the previously folded files of CG-matched RNA reads for each
+            pulldown concentration, for the top kmers, calculates the Ppaired
+            over each position of the motif and 10 flanking positions in the
+            input & pulldown libraries
+
+        11/8/17
+        """
+        print "\n\nEXECUTING get_Ppaired_over_top_enriched_kmers_and_flanking() in RBNS_main.py\n\n"
+
+        reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+        ks_to_fold_L = self.settings.get_property( 'ks_to_fold' )
+
+        kmers_Ls_to_fold_L = []
+        for k in ks_to_fold_L:
+            kmer_index_L = self.naively_sorted_kmers[k][:num_top_kmers_to_analyze]
+            kmers_L = []
+            for idx in kmer_index_L:
+                kmers_L.append( RBNS_utils.get_kmer_from_index( k, idx ) )
+            kmers_Ls_to_fold_L.append( kmers_L )
+
+        pprint.pprint( kmers_Ls_to_fold_L )
+        #return
+
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            folded_reads_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld_CG_match" )
+            struct_gz_F = os.path.join( folded_reads_DIR,
+                "{0}.w_struc.reads.gz".format(
+                    os.path.basename(split_reads_F).split('.reads')[0] ) )
+            print struct_gz_F
+            if os.path.exists( struct_gz_F ):
+
+                for k in ks_to_fold_L:
+
+                    RBNS_fold_split_reads.calc_Ppaired_over_top_enriched_kmers_and_flanking(
+                        struct_gz_F,
+                        k,
+                        self.settings.get_property( 'rna_5p_adapter' ),
+                        self.settings.get_property( 'rna_3p_adapter' ),
+                        self.settings.get_property('read_len') )
+
+
+        print "\n\nDONE with get_Ppaired_over_top_enriched_kmers_and_flanking() in RBNS_main.py\n\n"
 
 
     ################################ </ FOLDING > #############################

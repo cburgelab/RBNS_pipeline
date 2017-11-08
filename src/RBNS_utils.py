@@ -416,7 +416,91 @@ def return_num_lines_in_F_WITHOUT_pattern( F, patt ):
 
 
 
+def pkl_with_formatfile(
+        object_to_pickle,
+        abs_pkl_F,
+        num_to_include_in_format = "all",
+        additional_annotation_txt = "",
+        formatfile_ONLY = False):
+    """
+    - Pickles the object_to_pickle to abs_pkl_F
+    - Also makes a "format" file of ".format" appended to the abs_pkl_F
+    with the first num_to_include_in_format pretty-printed
+    - num_to_include_in_format can be:
+        "all"
+        an int ( will print out that number of keys )
+    """
+    if ( formatfile_ONLY is False ):
+        with open( abs_pkl_F, "wb" ) as f_pkl:
+            pickle.dump( object_to_pickle, f_pkl )
 
+    #### Make a format file
+    format_F = abs_pkl_F + ".format"
+    with open( format_F, "w" ) as f_format:
+
+        if (additional_annotation_txt != ""):
+            f_format.write( additional_annotation_txt + "\n\n" )
+
+        #### if it's a LIST
+        if (type(object_to_pickle) is list):
+            num_objects = len( object_to_pickle )
+            if (num_to_include_in_format == "all"):
+                f_format.write("There are {0} objects:\n\n".format(num_objects))
+                pprint.pprint( object_to_pickle, f_format )
+            else:
+                f_format.write("There are {0} objects. First {1} are:\n\n".format(
+                        num_objects,
+                        num_to_include_in_format ))
+                pprint.pprint( object_to_pickle[:num_to_include_in_format],
+                        f_format )
+        #### if it's a SET
+        elif (type(object_to_pickle) is set):
+            num_objects = len( object_to_pickle )
+            if (num_to_include_in_format == "all"):
+                f_format.write("There are {0} objects:\n\n".format(num_objects))
+                pprint.pprint( object_to_pickle, f_format )
+            else:
+                f_format.write("There are {0} objects. First {1} are:\n\n".format(
+                    num_objects,
+                    num_to_include_in_format))
+            pprint.pprint( set(list(object_to_pickle)[:num_to_include_in_format]),
+                f_format )
+        #### if it's a DICTIONARY
+        elif (type(object_to_pickle) is dict):
+
+            num_objects = len( object_to_pickle )
+            if ( num_to_include_in_format == "all" ):
+                f_format.write("There are {0} keys:\n\n".format( num_objects ))
+
+                f_format.write( "\n\n" + "="*36 + "< KEYS >" + "="*36 + "\n\n" )
+                pprint.pprint( object_to_pickle.keys(), f_format )
+                f_format.write( "\n\n" + "="*36 + "</ KEYS >" + "="*35 + "\n\n" )
+
+                pprint.pprint( object_to_pickle, f_format )
+            else:
+                f_format.write( "There are {0} objects. First {1} are:\n\n".format(
+                            num_objects,
+                            num_to_include_in_format ))
+                keys_L = object_to_pickle.keys()[:num_to_include_in_format]
+                temp_D = {}
+                for key in keys_L:
+                    temp_D[key] = object_to_pickle[key]
+
+                f_format.write( "\n\n" + "="*36 + "< KEYS >" + "="*36 + "\n\n" )
+                pprint.pprint( keys_L, f_format )
+                f_format.write( "\n\n" + "="*36 + "</ KEYS >" + "="*35 + "\n\n" )
+
+                pprint.pprint( temp_D, f_format )
+        #### if it's none of the above types
+        else:
+            print "UNRECOGNIZED TYPE"
+
+    try:
+        print "\n-Pickled {0:,} objects to:\n\t{1}\n".format(
+                    num_objects,
+                    abs_pkl_F )
+    except UnboundLocalError:
+        print "\n-Pickled to:\n\t{0}\n".format( abs_pkl_F )
 
 
 

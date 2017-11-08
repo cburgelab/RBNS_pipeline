@@ -4,17 +4,15 @@ import subprocess, pprint, glob
 import random
 import shutil
 import socket
-import signal
 import inspect
-
-os.sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__)) ) )
+import cPickle as pickle
+import numpy as np
 
 import RBNS_utils
 import RBNS_cluster_utils
 
 import forgi.graph.bulge_graph as cgb
 
-import cPickle as pickle
 
 
 
@@ -291,231 +289,6 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
 
 
 
-def submit_get_subopt_DotBracket_reads_F_for_block(
-        in_struct_gz_F,
-        temp,
-        block_idx ):
-    """
-    - For an in_reads_F split_reads file,
-        submits a job to run the
-        get_subopt_DotBracket_reads_F_for_block() function
-           below
-    10/3/16
-    """
-    #### Get this file path
-    filename = inspect.getframeinfo( inspect.currentframe() ).filename
-    this_script_path = os.path.abspath( filename )
-
-    output_DIR = os.path.dirname( in_struct_gz_F )
-    errors_outputs_DIR = os.path.join( output_DIR, "errors_outputs" )
-    RBNS_utils.make_dir( errors_outputs_DIR )
-
-    command = ('hostname ; python %(this_script_path)s '
-            'get_subopt_DotBracket_reads_F_for_block '
-            '%(in_struct_gz_F)s '
-            '%(temp)s '
-            '%(block_idx)s ' % locals())
-
-    job_name = "{0}_block{1}_get_subopt_DotBracket_reads_F_for_block".format(
-            os.path.basename( in_struct_gz_F ).split(".")[0], block_idx )
-    RBNS_cluster_utils.launch(
-            command,
-            out_file = os.path.join( errors_outputs_DIR,
-                "{}.log".format( job_name ) ),
-            jobname = job_name,
-            error_dir = errors_outputs_DIR,
-            q = 'long' )
-
-
-
-
-
-
-def get_subopt_DotBracket_reads_F_for_block(
-        in_struct_gz_F,
-        temp,
-        block_idx,
-        num_subopt_to_get = 20,
-        num_reads_per_block = 500000,
-        num_reads_to_get_status_after = 1000,
-        #num_reads_to_get_status_after = 1000000,
-        #copy_back_every_x_seconds = 7500 ):
-        copy_back_every_x_seconds = 10000000 ):
-    """
-    - For an in_struct_gz_F:
-        /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/fld_CG_match
-
-    5/17/17
-    """
-    temp = int( temp )
-    block_idx = int( block_idx )
-
-    start_basename = os.path.basename( in_struct_gz_F ).split(".reads")[0] +\
-            ".block_{}".format( block_idx )
-
-    scratch_DIR = "/scratch/pfreese/{0}_{1}".format(
-            start_basename, random.randint( 0, 100000 ) )
-    os.system( "mkdir -p {}".format( scratch_DIR ) )
-
-    #### If the out_DIR is different than the one simply passed in
-    #z#out_DIR = os.path.join( os.path.dirname( in_reads_F ), "w_str", "by_block" )
-    #out_DIR = os.path.join( os.path.dirname( in_reads_F ), "str", "by_block" )
-    out_DIR = os.path.join( os.path.dirname( in_struct_gz_F ),
-            "subopt_DB_{0}reads".format( num_subopt_to_get ) )
-    out_logs_DIR = os.path.join( out_DIR, "logs" )
-    os.system( "mkdir -p {}".format( out_logs_DIR ) )
-
-    #prev_copies_DIR = os.path.join( os.path.join( out_DIR, "prev_copy" ) )
-    #os.system( "mkdir -p {}".format( prev_copies_DIR ) )
-
-    #### copy over the reads to the scratch space
-    scratch_in_reads_F = os.path.join( scratch_DIR,
-            os.path.basename( in_struct_gz_F ) )
-    print "copying to {}".format( scratch_in_reads_F )
-
-    lower_this_block = block_idx * ( num_reads_per_block * 4 )
-    upper_this_block = ( block_idx + 1 ) * ( num_reads_per_block * 4 )
-
-    RBNS_utils.copy_gzip_lines_lower_through_upper_to_another_F(
-            in_struct_gz_F,
-            scratch_in_reads_F,
-            lower_this_block,
-            upper_this_block )
-    #shutil.copyfile( in_reads_F, scratch_in_reads_F )
-    print "\tDONE copying {}".format( os.path.basename( in_struct_gz_F ) )
-
-    out_reads_F = os.path.join( out_DIR,
-            "{}.subopt_DB.gz".format( start_basename ) )
-    out_F_to_append_results_to = os.path.join( scratch_DIR,
-            "{}.subopt_DB.gz".format( start_basename ) )
-    log_F = os.path.join( out_logs_DIR,
-            "{}.subopt_DB.log.txt".format( start_basename ) )
-
-    with open( log_F, "w" ) as log_f:
-        log_f.write( "Starting at: {}\n".format(
-            RBNS_utils.return_nice_datetime_str_for_filename() ) )
-
-        log_f.write( "hostname is: {}\n".format( socket.gethostname() ) )
-
-        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
-
-        log_f.write( "in_struct_gz_F: {}\n".format( in_struct_gz_F ) )
-        log_f.write( "temp: {}\n".format( temp ) )
-
-        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
-
-    num_reads_covered = 0
-    start_time = time.time()
-    last_copy_back_time = time.time()
-
-    #copy_from_file = os.path.join( scratch_DIR,
-    #    "{}.w_struc.reads.gz".format( start_basename ) )
-    #out_DIR = os.path.join( os.path.dirname( in_reads_F ), "w_str" )
-    #z#out_DIR = os.path.join( os.path.dirname( in_reads_F ), "w_str" )
-    #copy_to_file = os.path.join( out_DIR,
-    #    "{}.w_struc.reads.gz".format( start_basename ) )
-    #with gzip.open( scratch_reads_F, "wb" ) as out_f:
-    #    pass
-
-    #abs_read_idx = 0
-
-    reads_this_set_L = []
-    num_reads_this_set = 0
-    for lines_L in RBNS_utils.iterNlines(
-            scratch_in_reads_F, 4, strip_newlines = True ):
-
-        ############## < if this read is not to be done > #########
-        #if ( abs_read_idx < lower_this_block ):
-        #    abs_read_idx += 1
-        #    continue
-        #if ( abs_read_idx >= upper_this_block ):
-        #    break
-        #abs_read_idx += 1
-
-        rand_RNA_seq = lines_L[0]
-        reads_this_set_L.append( rand_RNA_seq )
-        num_reads_this_set += 1
-        num_reads_covered += 1
-
-        if ( num_reads_this_set == num_reads_to_get_status_after ):
-
-            get_subopt_folding_of_reads(
-                reads_this_set_L,
-                scratch_DIR,
-                temp,
-                out_F_to_append_results_to,
-                num_to_return_for_each_read = num_subopt_to_get )
-
-            reads_this_set_L = []
-            num_reads_this_set = 0
-
-    get_subopt_folding_of_reads(
-        reads_this_set_L,
-        scratch_DIR,
-        temp,
-        out_F_to_append_results_to,
-        num_to_return_for_each_read = num_subopt_to_get )
-        #if ( num_reads_covered in [5000, 10000, 50000] + [i*100000 for i in range( 1, 10 )] ):
-
-        #    curr_time = time.time()
-
-        #    secs_per_million_reads = (curr_time - start_time) * 1000000. / num_reads_covered
-        #    readable_string_secs_per_mil = RBNS_utils.return_human_readable_time_from_secs(
-        #            secs_per_million_reads )
-        #    with open( log_F, "a" ) as log_f:
-        #        curr_pprint_str = RBNS_utils.return_nice_datetime_str_for_filename()
-        #        curr_str = "{0:,} at {1} for {2}: {3} sec per million rds\n".format(
-        #            num_reads_covered,
-        #            curr_pprint_str,
-        #            start_basename,
-        #            readable_string_secs_per_mil )
-        #        print curr_str
-        #        log_f.write( curr_str )
-
-                #### If it's been more than copy_back_every_x_seconds
-                ####    since the last copy, do it now
-                #if ( ( time.time() - last_copy_back_time ) >= copy_back_every_x_seconds ):
-
-                #    with open( log_F, "a" ) as log_f:
-                #        curr_pprint_str = RBNS_utils.return_nice_datetime_str_for_filename()
-                #        curr_str = "\tCopying {0} to {1} w/ {2} reads at {3}\n".format(
-                #                scratch_reads_F,
-                #                out_reads_F,
-                #                num_reads_covered,
-                #                curr_pprint_str )
-                #        print curr_str
-                #        log_f.write( curr_str )
-
-                #    try:
-                #        shutil.copy( out_reads_F, prev_copies_DIR )
-                #    except IOError:
-                #        pass
-
-                #    shutil.copy( scratch_reads_F, out_reads_F )
-                #    last_copy_back_time = time.time()
-
-            #if ( num_reads_covered == 100000 ):
-            #    break
-
-    shutil.copyfile( out_F_to_append_results_to, out_reads_F )
-    with open( log_F, "a" ) as log_f:
-        total_sec = time.time() - start_time
-        curr_pprint_str = RBNS_utils.return_nice_datetime_str_for_filename()
-        curr_str = "FINISHED SUCCESSFULLY! Copied {0:,} reads to {1} at {2}\n\tTook {3:,} sec.".format(
-                num_reads_covered,
-                out_reads_F,
-                curr_pprint_str,
-                int( total_sec ) )
-        print curr_str
-        log_f.write( curr_str )
-
-    os.system( "rm -rf {}".format( scratch_DIR ) )
-    making_F = os.path.join( os.path.dirname( out_reads_F ),
-        "{0}.block_{1}.subopt_DB.gz.making".format(
-            os.path.basename( in_struct_gz_F ).split(".reads")[0], block_idx ) )
-    if os.path.exists( making_F ):
-        os.system( "rm {}".format( making_F ) )
-
 
 
 
@@ -642,6 +415,110 @@ def get_suboptimal_sampled_DotBracket_reads_F(
     if os.path.exists( making_F ):
         os.system( "rm {}".format( making_F ) )
 
+
+
+
+
+
+
+
+def calc_Ppaired_over_top_enriched_kmers_and_flanking(
+        reads_w_struct_F,
+        k,
+        fiveP_adapter,
+        threeP_adapter,
+        random_read_len,
+        num_bins = 5 ):
+    """
+    - For an in_struct_gz_F:
+
+        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/tst/RBFOX2_test/split_reads/fld_CG_match/
+
+            RBFOX3_input.w_struc.reads.gz
+            RBFOX3_20.w_struc.reads.gz
+
+        gets all occurrences of each of the kmers and
+        calculates the Ppaired over each position of the motif & 10 bases
+        flanking it upstream & downstream
+
+    11/8/17
+    """
+    starting_basename = os.path.basename( reads_w_struct_F ).split('.w_st')[0]
+
+    fiveP_len = len( fiveP_adapter )
+    threeP_len = len( threeP_adapter )
+
+    out_Ds_DIR = os.path.join( os.path.dirname( reads_w_struct_F ),
+            'Ppaired_Ds', str( k ) )
+    RBNS_utils.make_dir( out_Ds_DIR )
+
+    out_D_F = os.path.join( out_Ds_DIR, "{0}.D.pkl".format( starting_basename ) )
+    if os.path.exists( out_D_F ):
+        return
+
+    ##### Make sure that the adapter lengths & random read length match up
+    for lines_L in RBNS_utils.iterNlines( reads_w_struct_F, 4, strip_newlines = True ):
+
+        read_w_adapter = lines_L[0]
+        calculated_random_read_len = len( read_w_adapter ) - fiveP_len - threeP_len
+        assert( calculated_random_read_len == random_read_len )
+        break
+    random_idx_L = range( random_read_len )
+
+    upper_index_of_random = random_read_len + fiveP_len
+    num_kmers_each_read = random_read_len - k + 1
+
+    D = {"num_reads": 0,
+        "Ppair_and_count_by_kmer_idx_D": {},
+        "counts_by_kmer_binidx_D": {} }
+
+    for kmer in RBNS_utils.yield_kmers( k ):
+        D["counts_by_kmer_binidx_D"][kmer] = {}
+        for i in range( num_bins ):
+            D["counts_by_kmer_binidx_D"][kmer][i] = 0
+        D["Ppair_and_count_by_kmer_idx_D"][kmer] = {}
+        for idx in range( -10, k + 10 ):
+            D["Ppair_and_count_by_kmer_idx_D"][kmer][idx] = {'counts': 0, 'Ppaired_sum': 0.}
+
+    for lines_L in RBNS_utils.iterNlines( reads_w_struct_F, 4, strip_newlines = True ):
+
+        read_w_adapter = lines_L[0]
+        random_seq = read_w_adapter[fiveP_len:upper_index_of_random]
+        seq_L = [x for x in random_seq]
+
+        Ppaired_L = lines_L[1].split(" ")
+        pruned_Ppaired_L = [float(x) for x in Ppaired_L[fiveP_len:upper_index_of_random]]
+
+        seq_Ppaired_T_L = zip( seq_L, pruned_Ppaired_L )
+
+        D["num_reads"] += 1
+
+        for start_idx in range( num_kmers_each_read ):
+
+            #### Get the kmers in the read
+            kmer = random_seq[start_idx:(start_idx + k)]
+            Ppaired_kmer_L = pruned_Ppaired_L[start_idx:(start_idx + k)]
+
+            mean_Ppaired = np.mean( Ppaired_kmer_L )
+            if ( num_bins == 5 ):
+                bin_idx = get_bin_of_5_from_mean_Ppaired( mean_Ppaired )
+            elif ( num_bins == 10 ):
+                bin_idx = get_bin_of_10_from_mean_Ppaired( mean_Ppaired )
+
+            D["counts_by_kmer_binidx_D"][kmer][bin_idx] += 1
+
+            ##### Go through and get all of the Ppaired flanking
+            for rel_idx in range( -10, 10 + k ):
+
+                this_idx = start_idx + rel_idx
+                if this_idx in random_idx_L:
+                    D["Ppair_and_count_by_kmer_idx_D"][kmer][rel_idx]['counts'] += 1
+                    D["Ppair_and_count_by_kmer_idx_D"][kmer][rel_idx]['Ppaired_sum'] +=\
+                            pruned_Ppaired_L[this_idx]
+
+
+    ##### Pickle to out_D_F
+    RBNS_utils.pkl_with_formatfile( D, out_D_F )
 
 
 
@@ -929,7 +806,41 @@ def get_subopt_folding_of_reads(
 
 
 
+def get_bin_of_5_from_mean_Ppaired( mean_Ppaired ):
+    if ( mean_Ppaired <= 0.2 ):
+        return 0
+    elif ( mean_Ppaired <= 0.4 ):
+        return 1
+    elif ( mean_Ppaired <= 0.6 ):
+        return 2
+    elif ( mean_Ppaired <= 0.8 ):
+        return 3
+    else:
+        return 4
 
+
+
+def get_bin_of_10_from_mean_Ppaired( mean_Ppaired ):
+    if ( mean_Ppaired <= 0.1 ):
+        return 0
+    elif ( mean_Ppaired <= 0.2 ):
+        return 1
+    elif ( mean_Ppaired <= 0.3 ):
+        return 2
+    elif ( mean_Ppaired <= 0.4 ):
+        return 3
+    elif ( mean_Ppaired <= 0.5 ):
+        return 4
+    elif ( mean_Ppaired <= 0.6 ):
+        return 5
+    elif ( mean_Ppaired <= 0.7 ):
+        return 6
+    elif ( mean_Ppaired <= 0.8 ):
+        return 7
+    elif ( mean_Ppaired <= 0.9 ):
+        return 8
+    else:
+        return 9
 
 
 

@@ -97,6 +97,7 @@ class RBNS_settings:
                 'force_stream_recount': False,
                 'input_library_for_logos': 'input',
                 'kmers_to_ignore': [],
+                'ks_to_fold': [6],
                 'ks_to_test_by_position': [],
                 'ks_to_test_naive_max_once': [],
                 'lower_ks_to_test_logos': [4],
@@ -141,6 +142,7 @@ class RBNS_settings:
                 'kmers_to_ignore']
 
         list_int_keys =[
+                'ks_to_fold',
                 'ks_to_test_by_position',
                 'ks_to_test_naive',
                 'ks_to_test_naive_max_once',
@@ -318,6 +320,10 @@ class RBNS_settings:
         if settings['stream_count'] and not set(settings['ks_to_test_stream']).issubset(
           settings['ks_to_test_naive']):
             raise ValueError('All ks for stream must also be in naive')
+
+        if settings['ks_to_fold'] and not set(settings['ks_to_fold']).issubset(
+          settings['ks_to_test_naive']):
+            raise ValueError('\nAll ks for folding must also be in naive.\n\tCurrent ks_to_fold = {0} while ks_to_test_naive = {1}. Please add all ks_to_fold to ks_to_test_naive in the settings.json file.\n'.format( settings['ks_to_fold'], settings['ks_to_test_naive'] ) )
 
         #### If conc_for_mostenriched_analyses is passed in
         try:
