@@ -50,7 +50,7 @@ If you didn't already download the example file with the installation script, ru
 Once the script has finished running, you can find the output from the pipeline in the results_dir given in the settings.json file.
 
 
-### SHAPEware-MaP
+### RBNS_pipeline
 
 The inputs to the RBNS_pipeline are described in more detail [here](docs/input_files.md). Here is a quick summary:
 
@@ -67,6 +67,7 @@ The complete set of output files is described in . Briefly, output should includ
 - Enrichment tables of kmers
 
 Optional output files include:
+
 - SKA library fraction and other tables
 - Sequence motif logos as shown below
 - RNA secondary structure analyses of the top enriched kmers
