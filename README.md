@@ -1,14 +1,12 @@
 
-![Logo](img/SHAPEware-logo.png)
+![Logo](img/RBNS_logo.png)
 
 ***
 
 
 Welcome to the repository for RNA Bind-N-Seq Analysis! 
 
-SHAPEware is a set of bioinformatics tools to analyze data from high-throughput sequencing experiments that chemically
-probe RNA to investigate its structure. In developing SHAPEware, our goal is to create a unified package for all types
-of SHAPE data that provides highly accurate and customizable analysis capabilities.
+The RBNS pipeline is a set of bioinformatics tools to analyze data from high-throughput sequencing experiments of protein-bound RNAs.
 
 
 ## Installation
