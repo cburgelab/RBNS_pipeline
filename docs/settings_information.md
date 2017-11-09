@@ -27,18 +27,18 @@ Specifying each of the following in the .json file is required; if left out, an 
 
 Specifying any of the following in the .json file is optional; if left out, they will simply not be computed or the defaults will be used.
 
-Functionalities
-===============
+### Functionalities
+### ===============
 
-#### - nt_freqs_by_position: If True, it will calculate and plot the nucleotide frequencies at each position in each of the libraries, so you can see if you input library is biased.
+- nt_freqs_by_position: If True, it will calculate and plot the nucleotide frequencies at each position in each of the libraries, so you can see if you input library is biased.
 #### - ks_to_test_by_position: If True, it will calculate the frequency of each kmer at each of the read_len - k + 1 positions in the random region to see if kmers are evenly or unevenly distributed from 5' -> 3'.
 #### - stream_count and ks_to_test_stream: If stream_count = True, Streaming Kmer Assignment (SKA) value library fractions will be calculated and reported. See https://bitbucket.org/marjens/cska for a faster version implemented in Cython.
 #### - naive_max_once_count and ks_to_test_naive_max_once: By default False, but if naive_max_once_count = True, it will compute kmer frequencies and enrichments only counting up to 1 occurrence of each kmer within each read (e.g., UUUUU for a read containing UUUUUUUUUU would only get one count rather than 6 as it would with normal naive enrichments.
 #### - ks_to_test_logos and Z_scores_for_logos: Lists which specify the k's for which to perform logo generation, with the Z_scores_for_logos being the lower bound for Z-score enriched kmers to be included for inclusion into logo alignments. ks_to_test_logos should be a list of integer(s) (k=5 and/or 6 recommneded), with Z_scores_for_logos being a list of integers and/or floats (can mix & match, e.g., [2, 2.5, 3]). Logos will be made for all pairwise combinations of k & Z_score (logos used in Dominguez et al. 2017 were for k=5, Z_score = 3).
 #### - fold_each_reads_F: If True, will perform RNAfold'ing on the libraries (default = False) by folding each reads file, creating a file of 5 million input sequences as well as subsets of each pulldown library (up to 5 million reads each) that have a matched C+G content distribution within the random region.
 
-Advanced parameters
-==================
+### Advanced parameters
+### ==================
 
 #### - rna_5p_adapter and rna_3p_adapter: By default, "GGGGAGTTCTACAGTCCGACGATC" as "TGGAATTCTCGGGTGTCAAGG" as these were used in Lambert et al. experiments. All RNAfolding will fold the reads as rna_5p_adapter-random region-rna_3p_adapter, but only analyze the positions of the returned structure corresponding to the random region.
 #### - start_of_adapter_seq: If the read_len is significantly shorter than the .fastq read length, the beginning of the 3' sequencing adapter can be included as  start_of_adapter_se, and only reads that contain it at the expected position (i.e., no indels in the read) will be included. For example, if reads of length 40 were sequenced for random 20mer oligos with the 3' sequencing adapter being 'TGGAATTCTCGGGTGTCAAGG', setting start_of_adapter_seq = 'TGGAAT' would search for this sequence from the 3' end of reads, and only reads that include this sequence at positions 20-26 would be analyzed).
