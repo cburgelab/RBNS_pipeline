@@ -23,15 +23,15 @@ ks_to_test_naive = [5]
 ks_to_test_stream = [5]
 ks_to_test_by_position = [5]
 ks_to_test_naive_max_once = []
-#ks_to_test_logos = [5]
-#Z_scores_for_logos = [3]
-ks_to_test_logos = []
-Z_scores_for_logos = []
+ks_to_test_logos = [5]
+Z_scores_for_logos = [3]
+#ks_to_test_logos = []
+#Z_scores_for_logos = []
 
 #ks_for_genome_browser_beds = [5]
 #kmer_weights_Ls_for_genome_browser_L = [["GCATG",50.842],["GCACG",10.776]]
 
-fold_each_reads_F = True
+fold_each_reads_F = False
 
 force_naive_recount = False
 force_stream_recount = False

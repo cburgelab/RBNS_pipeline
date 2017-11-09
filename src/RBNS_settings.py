@@ -321,7 +321,7 @@ class RBNS_settings:
           settings['ks_to_test_naive']):
             raise ValueError('All ks for stream must also be in naive')
 
-        if settings['ks_to_fold'] and not set(settings['ks_to_fold']).issubset(
+        if settings['fold_each_reads_f'] is True and not set(settings['ks_to_fold']).issubset(
           settings['ks_to_test_naive']):
             raise ValueError('\nAll ks for folding must also be in naive.\n\tCurrent ks_to_fold = {0} while ks_to_test_naive = {1}. Please add all ks_to_fold to ks_to_test_naive in the settings.json file.\n'.format( settings['ks_to_fold'], settings['ks_to_test_naive'] ) )
 
