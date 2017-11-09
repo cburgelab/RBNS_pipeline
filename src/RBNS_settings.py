@@ -106,9 +106,6 @@ class RBNS_settings:
                 'naive_max_once_count': False,
                 'nt_freqs_by_position': True,
                 'num_reads_for_logos': 0.5,
-                #### adapter_sequences_l should be the DNA, not RNA, template adapters
-                'adapter_sequences_l': ["CCTTGACACCCGAGAATTCCA",
-                    "GATCGTCGGACTGTAGAACTCCCTATAGTGAGTCGT"],
                 #### rna_5p_adapter / rna_5p_adapter are used in RNA folding
                 'rna_5p_adapter': "GGGGAGTTCTACAGTCCGACGATC",
                 'rna_3p_adapter': "TGGAATTCTCGGGTGTCAAGG",
@@ -267,6 +264,11 @@ class RBNS_settings:
         ####    in the settings file as input_library_for_logos = 0 nM,
         ####    NOT input_library_for_logos = "0 nM"
         assert( settings['input_library_for_logos'] in ['input', '0 nM', '0 nm'] )
+
+        #### Get the reverse complement of the 5' and 3' sequencing adapters
+        settings['adapter_sequences_l'] = [
+                RBNS_utils.return_rev_comp_seq(settings['rna_5p_adapter']),
+                RBNS_utils.return_rev_comp_seq(settings['rna_3p_adapter'])]
 
         conc_str_for_Fnames_L = []
         for conc, barcode in zip( settings['concentrations'], settings['barcodes'] ):

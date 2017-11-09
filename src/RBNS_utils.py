@@ -505,3 +505,29 @@ def pkl_with_formatfile(
 
 
 
+
+
+
+
+
+def return_rev_comp_seq( seq ):
+    """
+    - Returns the reverse complement of an RNA sequence
+    """
+    from string import maketrans
+    if (seq.find("U") == -1):
+        trans = maketrans('ATGCNatcgn', 'TACGNtagcn')
+        rev_comp_seq = seq.translate(trans)[::-1]
+        return rev_comp_seq
+    else:
+        trans = maketrans('AUGCNaucgn', 'UACGNuagcn')
+        rev_comp_seq = seq.translate(trans)[::-1]
+        return rev_comp_seq
+
+
+
+
+
+
+
+
