@@ -30,8 +30,8 @@
 # logos/
 - If 'ks_to_test_logos' & 'z_scores_for_logos' were requested, there will be a separate sub-directory for each k / Z-score threshold pair of parameters. For example (for k = 5, Z-score = 3):
 ### k_5_to_4_Zscoretokeep_3.0/: 
-#### in_both/ contains the composite logos incorporating kmers that were sig. enriched in both halves of the logo pipeline run. A file like 'RBFOX3_5mer_seqlogos.pdf' contains the sequence logo(s) with a barplot in proportion to their summed kmers' enrichments if there is more than one logo, with other files in the directory containing only the sequence & probability logos; RBFOX3_5mer_logo0.PWM, etc. containg the PWMs of each logo
-#### A file like RBFOX3_5mers_for_logo.in_both.pruned.txt contains the kmers that were aligned into each logo along with their stepwise R-1 weights (the unpruned version contains the full kmers; the .pruned version does not include any leading or lagging positions that were removed as they contained >75% unaligned weight.
+- in_both/ contains the composite logos incorporating kmers that were sig. enriched in both halves of the logo pipeline run. A file like 'RBFOX3_5mer_seqlogos.pdf' contains the sequence logo(s) with a barplot in proportion to their summed kmers' enrichments if there is more than one logo, with other files in the directory containing only the sequence & probability logos; RBFOX3_5mer_logo0.PWM, etc. containg the PWMs of each logo
+- A file like RBFOX3_5mers_for_logo.in_both.pruned.txt contains the kmers that were aligned into each logo along with their stepwise R-1 weights (the unpruned version contains the full kmers; the .pruned version does not include any leading or lagging positions that were removed as they contained >75% unaligned weight.
 
 # counts/
 - Contains pickled dictionaries of various count types:
