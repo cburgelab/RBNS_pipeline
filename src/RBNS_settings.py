@@ -111,7 +111,6 @@ class RBNS_settings:
                 'rna_3p_adapter': "TGGAATTCTCGGGTGTCAAGG",
                 'stream_count': False,
                 'temp': 4,
-                'weblogo_path': '',
                 'z_scores_for_logos': [3.] }
 
         int_keys = [
@@ -333,15 +332,6 @@ class RBNS_settings:
                     float( settings['conc_for_mostenriched_analyses'].strip('"').strip("'") )
         except KeyError:
             self.settings['conc_for_mostenriched_analyses'] = None
-
-        ##### Add the command line executable weblogo to the $PATH, so it
-        ####    can be called from the command line when making logos
-        if ( self.settings['weblogo_path'] != '' ) and\
-                self.settings['weblogo_path'] not in os.environ["PATH"]:
-            os.environ["PATH"] = self.settings['weblogo_path'] +\
-                    ":" + os.environ["PATH"]
-
-        print os.environ["PATH"]
 
         print "SETTINGS:\n"
         pprint.pprint( settings )
