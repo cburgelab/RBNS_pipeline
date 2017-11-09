@@ -15,7 +15,7 @@ The RBNS pipeline is a set of bioinformatics tools to analyze data from high-thr
 The RBNS pipeline is designed to run on Linux. In addition, it requires the following software to be pre-installed on your computing environment:
 
 - Python (tested on version 2.7.11)
-- The [Miniconda](https://conda.io/miniconda.html) or [anaconda](https//docs.anaconda.com/) package manager
+- The [Miniconda](https://conda.io/miniconda.html) or [anaconda](https//docs.anaconda.com/) package manager (if you just download this, be source to 'source ~/.bashrc' after so that 'conda' is on your $PATH).
 - The [Weblogo](http://weblogo.threeplusone.com/manual.html) program (if sequence motif logos are to be produced.)
 - The [forgi](https://viennarna.github.io/forgi/) library (if RNA secondary secondary structure analysis is performed).
 - The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program (if RNA secondary secondary structure analysis is performed).
