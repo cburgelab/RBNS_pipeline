@@ -43,11 +43,7 @@ While you can also use the RBNS pipeline without this step by installing all nec
 
 In this public version, the RBNS_pipeline is able to analyze RBNS (Lambert et al., 2014) data. You can find example input files in the test_data/ directory within the repository. These were derived from experiments that assayed the RBFOX3 protein.
 
-If you didn't already download the example file with the installation script, run:
-
-	./test_data/download_files.sh 
-
-Once the script has finished running, you can find the output from the pipeline in the results_dir given in the settings.json file.
+Once the script has finished running, you can find the output from the pipeline in the results_dir given in the settings.RBFOX3.json file.
 
 
 ### RBNS_pipeline
