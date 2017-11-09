@@ -5,7 +5,7 @@ channels:
 - conda-forge
 dependencies:
 - viennarna=2.3.5=0
-- matplotlib=1.3.1
+- matplotlib=2.1.0
 - numpy=1.12.1=py36_0
 - pandas=0.20.3=py36_0
 - pip=9.0.1=py36_1
