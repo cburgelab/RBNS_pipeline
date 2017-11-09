@@ -1,15 +1,15 @@
 ![Logo](../img/RBNS_logo.png)
 
 ***
-# The output directories & files of an RBNS_pipeline run are (assuming you ran the pipeline on the RBFOX3 test_data, which contains the 20 nM and 1300 nM pulldown libraries as well as the input library):
+### The output directories & files of an RBNS_pipeline run are (assuming you ran the pipeline on the RBFOX3 test_data, which contains the 20 nM and 1300 nM pulldown libraries as well as the input library):
 
-## split_reads/
+# split_reads/
 - RBFOX3_barcode_log.txt contains the number of reads assigned to each barcode, as well as the observed insert lengths if the 'start_of_adapter_seq' argument was specified in the .settings file. It also includes a summary of the 'bad' barcodes (i.e., those that did not match the ones specified).
 - 'RBFOX3_1300.reads', 'RBFOX3_1300.reads', and 'RBFOX3_1300.reads' contain just the random portion of each read; RBFOX3_1300.fastq.gz, etc. contain the 4 lines for each read that were in the original FASTQ file.
 - 'RBFOX3_input.lib_complexity', etc. contain the library complexity of each library (how many sequences were unique, how many showed up 2x, 3x, etc. in the library)
 - 'RBFOX3_1300.wrong_insert_len.reads': if 'start_of_adapter_seq' was specified, these files contain reads with the library barcode but with an incorrect insert length (indel in the read; these reads were not used).
 
-## tables/
+# tables/
 - Contains a number of sub-directories with different types of tables:
 ### counts_and_freqs/
 - kmer counts & frequencies in each library
@@ -24,17 +24,16 @@
 ### adapters/
 - Contains the enrichment values for all kmers that are a reverse complement of an adapter sequence.
 
-## unique/
-
+# unique/
 - This directory contains the same files as the 'split_reads' directory, except that each read library contains only 1 occurrence of each read (i.e., even if a read occurs at more than 1x in 'RBFOX3_input.lib_complexity', it only occurs once in these split read files). Our own analysis shows enrichments, etc. from these files are largely the same as those on the original split_read files, but if you have very low library complexity, you may want to use these read files instead.
 
-## logos/
-- If '' were requested, there will be a separate sub-directory for each k / Z-score threshold pair of parameters. For example (for k = 5, Z-score = 3):
+# logos/
+- If 'ks_to_test_logos' & 'z_scores_for_logos' were requested, there will be a separate sub-directory for each k / Z-score threshold pair of parameters. For example (for k = 5, Z-score = 3):
 ### k_5_to_4_Zscoretokeep_3.0/: 
 #### in_both/ contains the composite logos incorporating kmers that were sig. enriched in both halves of the logo pipeline run. A file like 'RBFOX3_5mer_seqlogos.pdf' contains the sequence logo(s) with a barplot in proportion to their summed kmers' enrichments if there is more than one logo, with other files in the directory containing only the sequence & probability logos; RBFOX3_5mer_logo0.PWM, etc. containg the PWMs of each logo
-#### A file liek RBFOX3_5mers_for_logo.in_both.pruned.txt contains the kmers that were aligned into each logo along with their stepwise R-1 weights (the unpruned version contains the full kmers; the .pruned version does not include any leading or lagging positions that were removed as they contained >75% unaligned weight.
+#### A file like RBFOX3_5mers_for_logo.in_both.pruned.txt contains the kmers that were aligned into each logo along with their stepwise R-1 weights (the unpruned version contains the full kmers; the .pruned version does not include any leading or lagging positions that were removed as they contained >75% unaligned weight.
 
-## counts/
+# counts/
 - Contains pickled dictionaries of various count types:
 #### naive/
 - Contains the raw counts, which are converted into frequencies for enrichments
@@ -45,11 +44,11 @@
 #### stream/
 - Contains the streaming kmer algorithm (SKA) counts if 'stream_count' was requested.
 
-## frequency_Ds/ and enrichment_Ds/
+# frequency_Ds/ and enrichment_Ds/
 
 - Pickled dictionaries kmer frequencies in all libraries and enrichments in pulldown libraries, respectively.
 
-## errors/
+# errors/
 
 - If all goes well, there will be nothing in here, but if you launch jobs and something goes wrong, you may want to investigate here.
 
