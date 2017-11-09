@@ -5,7 +5,7 @@
 
 Welcome to the repository for RNA Bind-N-Seq Analysis! 
 
-The RBNS pipeline is a set of bioinformatics tools to analyze data from high-throughput sequencing experiments of protein-bound RNAs.
+The RBNS pipeline is a set of bioinformatics tools to analyze data from high-throughput sequencing experiments of protein-bound RNAs. The current version includes read splitting, calculation of kmer frequencies and enrichments, QC metrics, production of motif sequence logos, and RNA secondary structure analysis. Incorporation of functions to compute presence of bipartite motifs & flanking nucleotide context preferences are forthcoming.
 
 
 ## Installation
@@ -16,9 +16,9 @@ The RBNS pipeline is designed to run on Linux. In addition, it requires the foll
 
 - Python (tested on version 2.7.11)
 - The [Miniconda](https://conda.io/miniconda.html) or [anaconda](https//docs.anaconda.com/) package manager
-- The [forgi](https://viennarna.github.io/forgi/) library.
-- The [Weblogo](http://weblogo.threeplusone.com/manual.html) program
-- The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program
+- The [Weblogo](http://weblogo.threeplusone.com/manual.html) program (if sequence motif logos are to be produced.)
+- The [forgi](https://viennarna.github.io/forgi/) library (if RNA secondary secondary structure analysis is performed).
+- The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program (if RNA secondary secondary structure analysis is performed).
 
 If you need help installing any of these tools, see the [detailed documentation](docs/installation.md). When installing dependencies, make sure you agree with the corresponding licenses of various software tools.
 
@@ -57,7 +57,7 @@ The inputs to the RBNS_pipeline are described in more detail [here](docs/input_f
 - A settings .json file describing the samples.
 - A FASTQ file containing the sequencing reads to be analyzed.
 
-You can find examples of all of these files in the test_data/ folder. It is probably easiest to just take a look at these files first. You can run the RBNS_pipeline on this example and reproduce the figures below.
+You can find examples of all of these files in the test_data/ folder. It is probably easiest to just take a look at these files first. You can run the RBNS_pipeline on this example and reproduce the logo below.
 
 #### Example output: RBFOX3
 
@@ -83,7 +83,7 @@ RBNS_pipeline is developed by Peter Freese and released under a GPL v3 license.
 
 ## Contact
 
-For any questions or comments about SHAPEware, contact Peter Freese (pfreese [at] mit {dot} edu)
+For any questions or comments about the RBNS pipeline, contact Peter Freese (pfreese [at] mit {dot} edu).
 
 ## References
 
