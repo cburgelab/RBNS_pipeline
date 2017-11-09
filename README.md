@@ -27,7 +27,7 @@ If you need help installing any of these tools, see the [detailed documentation]
 
 The easiest way to get the RBNS pipeline software is to clone our repository. This will ensure you always have access to the latest version. 
 
-	git clone git@bitbucket.org:pfreese/rbns_pipeline.git
+	https://pfreese@bitbucket.org/pfreese/rbns_pipeline.git
 
 After cloning our repository, run the included installation script: 
 
