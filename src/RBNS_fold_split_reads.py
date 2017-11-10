@@ -17,21 +17,18 @@ import forgi.graph.bulge_graph as cgb
 
 
 
-
-
-
 def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         in_reads_F,
         temp,
         block_idx,
-        starting_scratch_DIR ):
+        starting_scratch_DIR ,
+        fiveP_adapter,
+        threeP_adapter ):
     """
     - For an in_reads_F split_reads file,
         submits a job to run the
         get_Ppaired_DotBracket_andletters_for_reads_F_for_block() function
            below
-
-    11/4/17
     """
     #### Get this file path
     filename = inspect.getframeinfo( inspect.currentframe() ).filename
@@ -46,6 +43,8 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
             '%(in_reads_F)s '
             '%(temp)s '
             '%(block_idx)s '
+            '%(fiveP_adapter)s '
+            '%(threeP_adapter)s '
             '%(starting_scratch_DIR)s ' % locals())
 
     job_name = "{0}_block{1}_get_Ppaired_DotBracket_andletters_for_reads_F_for_block".format(
@@ -70,26 +69,21 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         temp,
         block_idx,
         starting_scratch_DIR,
+        fiveP_adapter,
+        threeP_adapter,
         num_reads_per_block = 1000000,
-        fiveP_adapt = "GGGGAGTTCTACAGTCCGACGATC",
-        threeP_adapt = "TGGAATTCTCGGGTGTCAAGG",
         num_reads_to_get_status_after = 1000,
-        #num_reads_to_get_status_after = 1000000,
-        #copy_back_every_x_seconds = 7500 ):
         copy_back_every_x_seconds = 10000000 ):
     """
-    - For an in_reads_F like:
-        /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/IGF2BP1_input.reads
+    - For an in_reads_F in the /split_reads directory, folds a block of
+        num_reads_per_block reads, where this is for the block_idx, at the
+        reported temp
 
-        for a block_idx, makes a final out_F like:
-            /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/w_struc/by_block/
-            IGF2BP1_input.block_0.w_struc.reads.gz OR
-            IGF2BP1_320.block_2.w_struc.reads.gz,
-        while also copying back temporary files after every
-            copy_back_every_x_seconds; previous versions go in the
-            /prev_copy directories
+    - starting_scratch_DIR is a directory in which temporary I/O files will go
+    - fiveP_adapter & threeP_adapter will be added to each of the reads in
+        in_reads_F
 
-    1/3/17
+    - Makes an output file in /split_reads/fld/by_block
     """
     temp = int( temp )
     block_idx = int( block_idx )
@@ -148,8 +142,8 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
 
         log_f.write( "in_reads_F: {}\n".format( in_reads_F ) )
         log_f.write( "temp: {}\n".format( temp ) )
-        log_f.write( "fiveP_adapt: {}\n".format( fiveP_adapt ) )
-        log_f.write( "threeP_adapt: {}\n".format( threeP_adapt ) )
+        log_f.write( "fiveP_adapter: {}\n".format( fiveP_adapter ) )
+        log_f.write( "threeP_adapter: {}\n".format( threeP_adapter ) )
 
         log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
 
@@ -171,8 +165,6 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         num_reads_this_set = 0
         for line in f:
 
-            ############## < if this read is not to be done > #########
-
             rand_RNA_seq = line.strip()
             reads_this_set_L.append( rand_RNA_seq )
             num_reads_this_set += 1
@@ -185,8 +177,8 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
                     read_len,
                     scratch_DIR,
                     temp,
-                    fiveP_adapt,
-                    threeP_adapt )
+                    fiveP_adapter,
+                    threeP_adapter )
 
                 # Ds_by_read_D = {
                 #           "dot_struc": ".....(((((.(((((.((((((((((..(....)..))))))).))).))))))))..)).",
@@ -195,14 +187,14 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
                     reads_this_set_L,
                     scratch_DIR,
                     temp,
-                    fiveP_adapt,
-                    threeP_adapt )
+                    fiveP_adapter,
+                    threeP_adapter )
 
                 #### Now go through each of the seqs
                 with gzip.open( scratch_reads_F, "ab" ) as out_f:
                     for read_idx, rand_read in enumerate( reads_this_set_L ):
 
-                        read_w_adapt = fiveP_adapt + rand_read + threeP_adapt
+                        read_w_adapt = fiveP_adapter + rand_read + threeP_adapter
 
                         avg_bp_probs_L = avg_bp_probs_Ls_L[read_idx]
                         out_Ppaired_str = " ".join( ["{0:.3f}".format( Ppaired )\
@@ -291,10 +283,6 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
 
 
 
-
-
-
-
 def get_suboptimal_sampled_DotBracket_reads_F(
         in_struct_gz_F,
         temp,
@@ -303,14 +291,14 @@ def get_suboptimal_sampled_DotBracket_reads_F(
         num_reads_to_get_status_after = 1000,
         copy_back_every_x_seconds = 10000000 ):
     """
-    - For an in_struct_gz_F:
-
-        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/tst/RBFOX2_test/split_reads/fld_CG_match/
-
+    - For an in_struct_gz_F that already has 4 lines per read (e.g.,
             RBFOX3_input.w_struc.reads.gz
-            RBFOX3_20.w_struc.reads.gz
+            RBFOX3_20.w_struc.reads.gz, etc.),
+        will get each read in in_struct_gz_F and sample num_subopt_to_get
+        suboptimal structures from the thermodynamic ensemble
 
-    11/4/17
+    - Makes an output file with num_subopt_to_get + 1 lines per read
+        (the read, followed by the num_subopt_to_get structures)
     """
     temp = int( temp )
 
@@ -330,17 +318,10 @@ def get_suboptimal_sampled_DotBracket_reads_F(
             start_basename, random.randint( 0, 100000 ) ) )
     os.system( "mkdir -p {}".format( scratch_DIR ) )
 
-
-    #prev_copies_DIR = os.path.join( os.path.join( out_DIR, "prev_copy" ) )
-    #os.system( "mkdir -p {}".format( prev_copies_DIR ) )
-
     #### copy over the reads to the scratch space
     scratch_in_reads_F = os.path.join( scratch_DIR,
             os.path.basename( in_struct_gz_F ) )
     print "\n\tCopying {0} to {1}".format( in_struct_gz_F, scratch_in_reads_F )
-
-    #lower_this_block = block_idx * ( num_reads_per_block * 4 )
-    #upper_this_block = ( block_idx + 1 ) * ( num_reads_per_block * 4 )
 
     shutil.copyfile( in_struct_gz_F, scratch_in_reads_F )
     print "\t\tDONE"
@@ -430,19 +411,19 @@ def calc_Ppaired_over_top_enriched_kmers_and_flanking(
         random_read_len,
         num_bins = 5 ):
     """
-    - For an in_struct_gz_F:
-
-        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/tst/RBFOX2_test/split_reads/fld_CG_match/
-
+    - For an input reads_struct_F like:
             RBFOX3_input.w_struc.reads.gz
-            RBFOX3_20.w_struc.reads.gz
+            RBFOX3_20.w_struc.reads.gz,
 
         gets all occurrences of each of the kmers and
         calculates the Ppaired over each position of the motif & 10 bases
-        flanking it upstream & downstream
+        flanking it upstream & downstream, as well as the average Ppaired
+        over each motif occurrence (i.e., which of the num_bins Ppaired bins
+        it should go into for later calculating the R by Ppaired bin)
 
-    11/8/17
+    - Pickles an output dictionary in out_Ds_DIR for later loading & analysis
     """
+    assert( num_bins in [5, 10] )
     starting_basename = os.path.basename( reads_w_struct_F ).split('.w_st')[0]
 
     fiveP_len = len( fiveP_adapter )
@@ -516,7 +497,6 @@ def calc_Ppaired_over_top_enriched_kmers_and_flanking(
                     D["Ppair_and_count_by_kmer_idx_D"][kmer][rel_idx]['Ppaired_sum'] +=\
                             pruned_Ppaired_L[this_idx]
 
-
     ##### Pickle to out_D_F
     RBNS_utils.pkl_with_formatfile( D, out_D_F )
 
@@ -524,11 +504,6 @@ def calc_Ppaired_over_top_enriched_kmers_and_flanking(
 
 
 
-
-
-
-
-###############################################################################
 ###############################################################################
 #################################### < UTILS > ################################
 
@@ -539,21 +514,26 @@ def get_avg_bp_prob_with_flankingprimers(
         RNA_seq,
         read_length,
         tmp_DIR,
-        fivePprimer,
-        threePprimer,
+        fiveP_adapter,
+        threeP_adapter,
         temp = 37 ):
     """
-    - Calculates the average bp. probability for each base of RNA_seq
+    - Calculates the average bp. probability for each base of RNA_seq (which
+        does not have the 5' / 3' adapter sequence flanking it)
+    - tmp_DIR is an already-made scratch directory for temporary file I/0
+    - temp is degrees C which will be passed into the RNAfold command
+    - fiveP_adapter & threeP_adapter are the 5' and 3' sequencing adapters that
+        will be added to & folded along with the RNA_seq
     """
     # Get the primer lengths
-    fivePprimer_len = len( fivePprimer )
-    threePprimer_len = len( threePprimer )
+    fiveP_adapter_len = len( fiveP_adapter )
+    threeP_adapter_len = len( threeP_adapter )
 
     # First, make a temporary .fa file of the read
     tmp_read_fasta_F = os.path.join( tmp_DIR, "read.fa" )
     with open( tmp_read_fasta_F, "w" ) as f:
         f.write( ">read\n{0}".format(
-            fivePprimer + RNA_seq + threePprimer ) )
+            fiveP_adapter + RNA_seq + threeP_adapter ) )
     os.system("cd {0}".format( tmp_DIR ))
     # make the .ps files
     os.chdir( tmp_DIR )
@@ -565,10 +545,10 @@ def get_avg_bp_prob_with_flankingprimers(
     probs_ps_F = os.path.join( tmp_DIR, "read_dp.ps" )
     avg_bp_probs_L = parse_probs_ps_F(
             probs_ps_F,
-            fivePprimer_len + read_length + threePprimer_len )
+            fiveP_adapter_len + read_length + threeP_adapter_len )
 
     avg_bp_probs_randomregion_L =\
-        avg_bp_probs_L[fivePprimer_len:(-1*threePprimer_len)]
+        avg_bp_probs_L[fiveP_adapter_len:(-1*threeP_adapter_len)]
 
     avg_bp_probs_D = {"all_bp_probs_L": avg_bp_probs_L,
             "randomregion_bp_probs_L": avg_bp_probs_randomregion_L}
@@ -591,7 +571,7 @@ def parse_probs_ps_F(
                 list indices in probs_ps_F, so there must be a change-by-1
     """
     avg_bp_probs_L = [0.] * read_length
-    # go through the file
+
     with open( probs_ps_F ) as f:
         start_parsing = False
         for line in f:
@@ -614,8 +594,6 @@ def parse_probs_ps_F(
                     elif ( bases_and_probs_L[3] == "lbox" ):
                         return avg_bp_probs_L
                 except IndexError:
-                    #print "INDEX ERROR FOR {0} in {1}".format(
-                    #        ln, probs_ps_F )
                     continue
             if ( ln == "showpage" ):
                 return avg_bp_probs_L
@@ -640,10 +618,11 @@ def get_avg_bp_probs_w_adapters(
     """
     - Calculates the average bp. probability for each base for each of the
         strings in RNA_seqs_L
+
     INPUTS:
         - RNA_seqs_L: a list of sequences (e.g.: ["AACAA","CCAAG"])
-        - read_length: the length of the seqs to keep (e.g. 39 of the 40
-            bases of each read)
+        - read_length: the length of each of the RNAs in RNA_seqs_L
+
     RETURNS:
         - avg_bp_probs_Ls_L: a list of length len(RNA_seqs_L), which contains
             lists of the average bp. probability for each base of that seq
@@ -672,8 +651,6 @@ def get_avg_bp_probs_w_adapters(
         probs_ps_F = os.path.join( tmp_DIR, "{0}_dp.ps".format( seq_num ) )
         avg_bp_probs_L = parse_probs_ps_F( probs_ps_F,
                 read_length + len_5p + len_3p )
-        #avg_bp_probs_wo_adapters_L = avg_bp_probs_L[len_5p:(-1*len_3p)]
-        #avg_bp_probs_Ls_L.append( avg_bp_probs_wo_adapters_L )
         avg_bp_probs_Ls_L.append( avg_bp_probs_L )
 
     return avg_bp_probs_Ls_L
@@ -698,8 +675,6 @@ def get_MFE_DotBracket_and_symbol_over_reads(
                 "dot_struc": dot_struc,
                 "dotbracket_str": dotbracket_str }
     """
-    #rand_str = str( random.random() )
-
     fa_to_fold_F = os.path.join( scratch_DIR, "rd.fa" )
     with open( fa_to_fold_F, "w" ) as fa_f:
 
@@ -735,11 +710,10 @@ def get_MFE_DotBracket_and_symbol_over_reads(
 def get_elementstring_from_DotBracket( DotBracket_str ):
     """
     INPUT:
-        DotBracket_string = '(((((((((...((((((.........))))))........((((((.......))))))..)))))))))'
+        DotBracket_string =
+        (((((((((...((((((.........))))))........((((((.......))))))..)))))))))
     RETURNS:
         sssssssssmmmsssssshhhhhhhhhssssssmmmmmmmmsssssshhhhhhhssssssmmsssssssss
-
-    10/3/16
     """
     bg = cgb.BulgeGraph()
     bg.from_dotbracket( DotBracket_str )
@@ -762,8 +736,6 @@ def get_subopt_folding_of_reads(
     - Given a list of reads (with adapters) reads_L, will get
         num_to_return_for_each_read suboptimal DotBracket structures sampled
         with probabilities equal to their Boltzmann weights
-
-    11/4/17
     """
     tmp_read_fasta_F = os.path.join( scratch_DIR, "reads.fa" )
     out_F = os.path.join( scratch_DIR, "reads.out.txt" )
@@ -803,9 +775,6 @@ def get_subopt_folding_of_reads(
 
 
 
-
-
-
 def get_bin_of_5_from_mean_Ppaired( mean_Ppaired ):
     if ( mean_Ppaired <= 0.2 ):
         return 0
@@ -842,11 +811,7 @@ def get_bin_of_10_from_mean_Ppaired( mean_Ppaired ):
     else:
         return 9
 
-
-
-
 ################################# </ UTILS > ##################################
-###############################################################################
 ###############################################################################
 
 

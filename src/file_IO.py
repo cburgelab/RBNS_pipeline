@@ -12,7 +12,7 @@ import RBNS_utils
 def get_sig_enriched_kmers_from_txt_R_F(
         txt_R_F,
         most_enriched_lib_conc = None,
-        num_std_for_sig = 2):
+        num_std_for_sig = 2 ):
     """
     INPUT:
         - txt_R_F: a file of enrichments from the pipeline (e.g.
@@ -94,7 +94,7 @@ def get_least_enriched_kmers_from_txt_R_F(
 
 def return_D_of_enrichments_from_txt_F(
         txt_F,
-        most_enriched_lib_conc = None):
+        most_enriched_lib_conc = None ):
     """
     INPUT:
         - txt_F: a file of enrichments from the pipeline (e.g.
@@ -106,7 +106,6 @@ def return_D_of_enrichments_from_txt_F(
         - kmer_to_enrichments_D, a dictionary with
         kmer_to_enrichments_D["20."] = 3.6
     """
-    print txt_F
     #### get the enrichments for each of the concentrations
     enriches_by_conc_D = get_D_from_txt_table( txt_F )
 
@@ -169,18 +168,11 @@ def get_D_from_txt_table(
                         enriches_by_conc_D[conc_this_val] = {kmer: float( val )}
 
     k = len( kmer )
-    # make sure that each library has the proper number of values (note -
-    ### this is now skipped because if there are kmers_to_ignore, it will not
-    ### match
+
     for conc in enriches_by_conc_D.keys():
         if (len(enriches_by_conc_D[conc]) == 0):
             del enriches_by_conc_D[conc]
-        #else:
-        #    assert( len(enriches_by_conc_D[conc]) == (4**k) )
-    # make sure there are an adequate number of libraries in the enriches_by_conc_D
-    # (with maximally one library (input) having been removed)
-    #assert((len(enriches_by_conc_D) == len(concs_L)) or\
-    #        (len(enriches_by_conc_D) == len(concs_L)-1))
+
     return enriches_by_conc_D
 
 
@@ -200,7 +192,7 @@ def make_temp_reads_F(
     - INPUT:
         - orig_reads_F: a file (e.g. .reads) of the reads
         - target_reads_DIR: where the output .reads file will be written
-        - rd_length_to_use: the length of reads that will be included in the
+        - read_length_to_use: the length of reads that will be included in the
             output reads file
             - "full_length": it will be the full read
         - num_reads_to_use:
@@ -347,7 +339,7 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
     """
     - For a reads_F, makes a new out_reads_F in the same directory
         in which each occurrence of the kmer is replaced with "X"s
-    - Called by functions in ~/RBNS/RBNS_motifs.py
+    - Called by functions in RBNS_logos.py
 
     - RETURNS:
             return_D = {"out_reads_F": out_reads_F,
@@ -366,7 +358,7 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
     out_basename = orig_reads_basename.rsplit(".", 1)[0] +\
             "_{}.reads".format( kmer )
     #### If the file name is over 100 characters, shorten it
-    if (len( out_basename ) >= 100):
+    if ( len( out_basename ) >= 100 ):
         out_basename = "{}.reads".format( kmer )
     out_reads_F = os.path.join( orig_reads_DIR, out_basename )
 
@@ -426,9 +418,7 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
     reads_f.close()
     out_reads_f.close()
 
-
-    #### Normalize the counts_by_kmer_D into freqs using the helper function
-    ####    in dict_helpers.py
+    #### Normalize the counts_by_kmer_D into freqs
     freqs_by_kmer_D = RBNS_utils.normalize_D( counts_by_kmer_D )
     freq_reads_w_kmer = float( num_reads_w_kmer ) / tot_num_reads
 
@@ -439,8 +429,7 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
             "tot_num_kmer_occurs" : tot_num_kmer_occurs,
             "counts_by_kmer_D": counts_by_kmer_D,
             "freqs_by_kmer_D": freqs_by_kmer_D}
-    #### Remove the old reads_F
-    #os.system( "rm {}".format( reads_F ) )
+
     return return_D
 
 
@@ -450,6 +439,8 @@ def return_frequency_and_number_of_reads_kmer_in_reads_F(
 def get_num_reads_by_barcode_and_conc_D(
         barcode_log_txt_F ):
     """
+    - From the information in the barcode_log_txt_F, returns a dictionary like:
+
     {'barcode_to_numreads_D': {'ACTGAT': 26787411,
                                'CGTACG': 21423352,
                                'GAGTGG': 27350419,

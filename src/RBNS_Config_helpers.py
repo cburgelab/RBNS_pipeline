@@ -38,7 +38,6 @@ def get_settings_template(
         options_this_section = Config.options(section)
         for option in options_this_section:
             setting = Config.get(section, option)
-            #print option
             if option in int_settings_L:
                 setting = int(setting)
 
@@ -57,8 +56,6 @@ def get_settings_template(
                     setting = [x.strip() for x in tmp_list]
                 except AttributeError:
                     setting = tmp_list
-                #except TypeError:
-                #    setting = tmp_list
             elif option in boolean_settings_L:
                 setting = Config.getboolean(section, option)
             # put it in the dictionary

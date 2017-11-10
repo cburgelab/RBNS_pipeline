@@ -18,11 +18,9 @@ import scipy.cluster.hierarchy as sch
 from matplotlib.backends.backend_pdf import PdfPages
 
 import RBNS_utils
-#import RBNS_logo_helpers
 
 
-#### To turn on LaTeX text; if you do not have an installation of LaTeX on
-####    your path (e.g., .../texlive/2013/bin/x86_64-linux), can comment this out
+#### If there's an installation of LaTeX on you path (e.g., .../texlive/2013/bin/x86_64-linux)
 try:
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -52,8 +50,6 @@ dark_to_light_D = { 1: [5],
                     9: [0, 2, 3, 4, 5, 6, 7, 8, 9],
                     10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                     11: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
-
-
 
 shades_of_orange_D = {
         ### dark
@@ -111,14 +107,11 @@ nt_colors_D = {
         "G_input": "#ffd589",
         "T_input": "#ff9d9d" }
 
-
 rainbow_colors_L = ["#E05B51", "#EF6C00", "#FDD835", "#8BC34A", "#2196F3",
         "#d0a2ff", "#ff99ab", "#b5eef3", "#c47d33", "#960e29", "#808080"]
 
-
 default_scatter_colors_L = ["#0066F7", "#FE8C0C", "#F71800", "#00C611",
         "#7400c6", "#ff4a6a", "#95461d"]
-
 
 legend_locations_D = {"upper_right": 1,
         "upper_left": 2,
@@ -140,9 +133,6 @@ nt_colors_by_nt_D = {
         "C+G": "#805380",
         "A+T": "#804000",
         "A+U": "#804000"}
-
-
-
 
 
 def plot_multiple_inOnePDF(
@@ -222,6 +212,7 @@ def make_rectangular_heatmap_plot(
     """
     - Makes a rectangular (generally square) plot with each sub-square shaded
         according to its value in checkerboard_D
+
     - INPUTs:
         - checkerboard_D:
             - a dictionary with format checkerboard_D[key_1][key_2]
@@ -238,10 +229,7 @@ def make_rectangular_heatmap_plot(
 
         - horiz_lines_L and vert_lines_L: should be between 0 & 1 (i.e.,
             fractional of how far across the axes to go)
-
-    7/15/15
     """
-    #pprint.pprint( checkerboard_D )
 
     from matplotlib.colors import rgb2hex
 
@@ -312,12 +300,7 @@ def make_rectangular_heatmap_plot(
 
     ####    Make a figure and a main axis for the heat map
     fig = plt.figure()
-    #gs = GridSpec( 1, 1, bottom = 0.18, left = 0.18, right = 0.82)
-    #ax = fig.add_subplot( gs[0,0] )
-    #if (height_per_row == None):
     ax = fig.add_subplot(111)
-    #fig.add_axes( [0.15, 0.1, 0.66, 0.8] )
-    #ax = plt.gca()
     ax_colorbar_limits_L = [
             0.83,
             bottom_of_main_heatmap,
@@ -332,18 +315,15 @@ def make_rectangular_heatmap_plot(
                 array([[axis_limits_L[0], axis_limits_L[1]],
                     [axis_limits_L[2], axis_limits_L[3]]]))
         ax.set_position( axis_limits_Bbox )
-        #ax = fig.add_axes( axis_limits_L )
         ax_colorbar_limits_L = [axis_limits_L[0] + axis_limits_L[2] + 0.01,
                 axis_limits_L[1], 0.02, axis_limits_L[3]]
 
     ##### go through each of the squares
     for key_1_num, key_1 in enumerate( keys_1_L ):
         for key_2_num, key_2 in enumerate( keys_2_L ):
+
             val = checkerboard_D[key_1][key_2]
-            ##### get the color for this square
-            #print val
-            #print "bottom: {}".format( colormap_bottom )
-            #print "top: {}".format( colormap_top )
+
             #### if val is "nan", change it to 0
             if (math.isnan(val) == True):
                 color = nan_color
@@ -399,10 +379,8 @@ def make_rectangular_heatmap_plot(
 
     axes().set_aspect('equal')
 
-    #ax.set_title(r"{}".format( title.replace("_", "\_") ),
     ax.set_title(r"{}".format( title.replace("_", "\_") ),
             fontsize=title_fontsize)
-    #ax.set_xlabel(r"{}".format( label_key_1.replace("_", "\_") ),
     ax.set_xlabel(r"{}".format( label_key_1 ),
             fontsize = label_fontsize)
     ax.set_ylabel(r"{}".format( label_key_2 ),
@@ -440,14 +418,14 @@ def make_rectangular_heatmap_plot(
     if (label_keys_2 == True):
         if override_keys_2_labels_L is not None:
             str_keys_2_L = override_keys_2_labels_L
-        ax.set_yticklabels( str_keys_2_L ) #, size=16, rotation=45, ha='right')
+        ax.set_yticklabels( str_keys_2_L )
         ax.tick_params(axis='y', labelsize = label_2_fontsize)
     else:
         ax.set_yticklabels( [""] * len(str_keys_2_L))
         ax.tick_params(axis='y', labelsize = 4 )
 
     ##### If the gridlines should be included
-    if (gridlines_color != False):
+    if ( gridlines_color != False ):
         for i in range( 1, len(keys_1_L) ):
             plt.axvline( x = i / float(len( keys_1_L )),
                     color = gridlines_color )
@@ -462,24 +440,24 @@ def make_rectangular_heatmap_plot(
         cmap = cmap,
         norm = norm,
         orientation='vertical')
-    #cb = plt.colorbar()
-    #cb.set_label(r'{}'.format( colorbar_label.replace("_", "\_") ), size = 18)
     cb.set_label(r'{}'.format( colorbar_label ), size = 18)
     plt.gca().tick_params(axis='y', labelsize=18)
 
-    #plt.gca().tight_layout()
     plt.gcf().subplots_adjust( bottom = bottom_of_main_heatmap )
     plt.gcf().subplots_adjust( top = top_of_main_heatmap )
 
     return_D = {"fig": fig}
+
     #### save the plot if an out_F was provided
     if (out_F != None):
 
         fig.savefig( out_F )
         print "Saved to: {}".format( out_F )
+
         png_out_F = out_F.replace( "pdf", "png" )
         fig.savefig( png_out_F )
         print "and: {}".format( png_out_F )
+
         return_D["out_F"] = out_F
         return_D["png_out_F"] = png_out_F
     return return_D
@@ -536,12 +514,6 @@ def make_rectangular_heatmap_plot_RBNS_freqs(
                 they're significantly enriched)
 
             - right_bar_color_by: either "KL" or "R"
-
-    - Originally made to plot enrichments of kmer frequencies at each position
-        over those expected from a uniform distribution - called by
-        analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider() in
-        /net/utr/data/atf/pfreese/other_RBNS/motif_alignments/scripts/rbns_motifs.py
-
     """
     from matplotlib.colors import rgb2hex
 
@@ -625,7 +597,6 @@ def make_rectangular_heatmap_plot_RBNS_freqs(
     #### the boundaries of the log2 axis for the sig. kmers
     log2_ax_top = 0.9
 
-
     #### The amount of space for the sig. + control kmers (0.85, which is the
     ####    entire 0.9 range minus 0.05 that will separate the sig. & control
     ####    kmers
@@ -670,6 +641,7 @@ def make_rectangular_heatmap_plot_RBNS_freqs(
         va = 'bottom',
         fontsize = 12,
         xycoords = 'figure fraction')
+
     ###########################################################################
     ######### Max a heatmap of the log2(Obs / Expected) at each position for
     ########    the "significant" kmers
@@ -919,6 +891,7 @@ def scatter_nt_freqs_by_read_position(
 
     fig = plt.figure()
     ax = fig.gca()
+
     #### plot a dotted horizontal line at 25%
     ax.axhline( y = 25.,
             color='k', linestyle='--', linewidth = 2)
@@ -975,6 +948,8 @@ def scatter_nt_freqs_by_read_position(
 
 
 
+
+
 def make_rectangular_heatmap_NT_freq_across_read_all_libs(
         freqs_by_pos_D_by_conc_annot_D,
         conc_annots_L,
@@ -987,9 +962,9 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
         conc_annot_fontsize = 8,
         max_log2_val_colormap = None ):
     """
-    - Makes a plot of kmers log2(enrichment) of frequency relative to uniform
-        background across the positions of the reads for ALL submitted RBNS
-        experiments
+    - Makes a plot of the log2(enrichment) of the 4 base frequencies relative to
+        uniform background across the positions of the reads for ALL submitted
+        RBNS experiments
 
         - called by make_meta_plots_of_kmer_freqs_by_position_in_submitted_exps()
             in ~/python_lib/RBNS_helpers/RBNS_kmers_by_position.py
@@ -1005,15 +980,8 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
             Expected Uniform freq. (each element in the list represents a
             read start position)
 
-
         - RBP_to_yaxis_annot_D: what should be plotted for each experiment
             along the y-axis (e.g., "RBFOX2: UGCAUG")
-
-    - Originally made to plot enrichments of kmer frequencies at each position
-        over those expected from a uniform distribution - called by
-        analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider() in
-        /net/utr/data/atf/pfreese/other_RBNS/motif_alignments/scripts/rbns_motifs.py
-
     """
     from matplotlib.colors import rgb2hex
 
@@ -1056,13 +1024,10 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
                     for x in range( random_len )]
             max_abs_val = max( max_abs_val, max( [abs(x) for x in log_2_ratio_L] ) )
             unnorm_vals_L_by_nt_concannot_D[nt][conc_annot] = log_2_ratio_L
-    #colormap_bottom = -1 * max_abs_val
-    #colormap_top = max_abs_val
     colormap_bottom = -0.5
     colormap_top = 0.5
 
     norm_log2 = mpl.colors.Normalize(colormap_bottom, colormap_top)
-
 
     fig = plt.figure()
 
@@ -1082,7 +1047,6 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
     gca().spines['left'].set_color('none')
     gca().spines['right'].set_color('none')
     gca().tick_params(labelcolor="w", top='off',left="off",right="off",\
-                                            bottom="off")
 
     ax_left = 0.1
     ax_right = 0.85
@@ -1177,8 +1141,8 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
 
 
 def plot_stacked_bargraph_with_logos(
-        nums_L,
-        SeqLogos_L,
+        seqlogo_proportions_L,
+        seqLogo_Fs_L,
         out_F,
         title = "",
         xlab = "",
@@ -1186,8 +1150,9 @@ def plot_stacked_bargraph_with_logos(
         colors_for_bargraph = "default",
         collapse_less_than_x_perc_into_Other = 5. ):
     """
-    - Plots a basic stacked histogram with the SeqLogos_L, each having
-        nums_L weight, to out_F
+    - Plots a basic stacked histogram with the seqLogo_Fs_L, each having
+        seqlogo_proportions_L weight (the summer stepwise R - 1 of kmer in
+        that logo), to out_F
 
     - collapse_less_than_x_perc_into_Other:
         - if None: won't collapse any categories
@@ -1199,9 +1164,10 @@ def plot_stacked_bargraph_with_logos(
     from PIL import Image
     from matplotlib.backends.backend_pdf import PdfPages
 
-    nums_L = [float(x) for x in nums_L]
-    #### Normalize nums_L so they all sum to 100.
-    nums_L = [x * 100./sum( nums_L ) for x in nums_L]
+    seqlogo_proportions_L = [float(x) for x in seqlogo_proportions_L]
+    #### Normalize seqlogo_proportions_L so they all sum to 100.
+    seqlogo_proportions_L = [x * 100./sum( seqlogo_proportions_L )\
+            for x in seqlogo_proportions_L]
 
     #### Combine any nums that are individually less than 5% into 1 composite
     ####    "other" category
@@ -1209,47 +1175,45 @@ def plot_stacked_bargraph_with_logos(
             (type(collapse_less_than_x_perc_into_Other) is int):
         total_other = 0.
         pared_nums_L = []
-        pared_SeqLogos_L = []
-        for num_idx, num in enumerate( nums_L ):
+        pared_seqLogo_Fs_L = []
+        for num_idx, num in enumerate( seqlogo_proportions_L ):
             if (num < collapse_less_than_x_perc_into_Other):
                 total_other += num
             else:
                 pared_nums_L.append( num )
                 try:
-                    pared_SeqLogos_L.append( SeqLogos_L[num_idx] )
+                    pared_seqLogo_Fs_L.append( seqLogo_Fs_L[num_idx] )
                 except IndexError:
                     pass
         #### If there was any "total_other" added, include it
         if (total_other > 0.):
             pared_nums_L.append( total_other )
-        nums_L = pared_nums_L
-        SeqLogos_L = pared_SeqLogos_L
+        seqlogo_proportions_L = pared_nums_L
+        seqLogo_Fs_L = pared_seqLogo_Fs_L
 
 
     #### Get the colors to use based on the number of logos
     if (colors_for_bargraph == "default"):
         colors_to_use_L = ["#a6cee3", "#1f78b4", "#b2df8a","#33a02c",
                 "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00"]
-
     #### If a list of colors to use were explicitly passed in
     elif (type( colors_for_bargraph ) is list):
         colors_to_use_L = colors_for_bargraph
-
     else:
         print "ERROR: colors_for_bargraph {} NOT RECOGNIZED".format(
                 colors_for_bargraph )
 
     pdf = PdfPages(out_F)
 
-    fig = plt.figure(figsize=(4,3), dpi=300)
+    fig = plt.figure( figsize=(4,3), dpi = 300 )
 
     strt_ax = plt.gca()
     strt_ax.spines['top'].set_color('none')
     strt_ax.spines['bottom'].set_color('none')
     strt_ax.spines['left'].set_color('none')
     strt_ax.spines['right'].set_color('none')
-    strt_ax.tick_params(top='off',left="off",right="off",\
-            bottom="off")
+    strt_ax.tick_params( top='off', left="off", right="off", bottom = "off" )
+
     for which_ax in ["x", "y"]:
         plt.tick_params(
                 axis = which_ax,
@@ -1290,7 +1254,6 @@ def plot_stacked_bargraph_with_logos(
                 verticalalignment = 'center',
                 horizontalalignment = 'center')
 
-
     ##################### < the axis for the bar plot > #######################
     lft = 0.45
     btm = 0.05
@@ -1305,33 +1268,31 @@ def plot_stacked_bargraph_with_logos(
     ax.spines['bottom'].set_color('none')
     ax.spines['left'].set_color('none')
     ax.spines['right'].set_color('none')
+    ##################### </ the axis for the bar plot > ######################
 
-    ##################### < / the axis for the bar plot > #####################
-
-
-    num_seqLogos = len( SeqLogos_L )
+    num_seqLogos = len( seqLogo_Fs_L )
     if (num_seqLogos <= 4):
         height_of_seqlogo = 0.43
         width_of_seqlogo = .39
         num_logos_right_of_bar = 2
-        seqLogos_right_L = SeqLogos_L[:2]
-        seqLogos_left_L = SeqLogos_L[2:]
+        seqLogos_right_L = seqLogo_Fs_L[:2]
+        seqLogos_left_L = seqLogo_Fs_L[2:]
     elif (num_seqLogos <= 6):
         height_of_seqlogo = 0.33333
         width_of_seqlogo = .2777
         num_logos_right_of_bar = 3
-        seqLogos_right_L = SeqLogos_L[:3]
-        seqLogos_left_L = SeqLogos_L[3:]
+        seqLogos_right_L = seqLogo_Fs_L[:3]
+        seqLogos_left_L = seqLogo_Fs_L[3:]
     else:
         height_of_seqlogo = 0.25
         width_of_seqlogo = .2083
         num_logos_right_of_bar = 4
-        seqLogos_right_L = SeqLogos_L[:4]
-        seqLogos_left_L = SeqLogos_L[4:8]
+        seqLogos_right_L = seqLogo_Fs_L[:4]
+        seqLogos_left_L = seqLogo_Fs_L[4:8]
 
-    # if the length of SeqLogos is less than the length of nums_L, the last
-    # number is the "other signficant enriched" category
-    if (len(SeqLogos_L) < len(nums_L)):
+    # if the length of SeqLogos is less than the length of seqlogo_proportions_L,
+    # the last number is the "other signficant enriched" category
+    if (len(seqLogo_Fs_L) < len(seqlogo_proportions_L)):
         other_significant = True
     else:
         other_significant = False
@@ -1339,7 +1300,7 @@ def plot_stacked_bargraph_with_logos(
     handles_L = []
     cur_bottom = 100.
     bottoms_L = []
-    for num, val in enumerate(nums_L):
+    for num, val in enumerate( seqlogo_proportions_L ):
         cur_bottom -= val
         bottoms_L.append( cur_bottom )
         color_idx = num % len( colors_to_use_L )
@@ -1349,9 +1310,10 @@ def plot_stacked_bargraph_with_logos(
                 color = colors_to_use_L[color_idx],
                 bottom = cur_bottom)
         handles_L.append(hand)
+
     for num, cur_bottom in enumerate(bottoms_L):
         try:
-            y_to_connect_line_to = (cur_bottom/100.) + (nums_L[num]/200.)
+            y_to_connect_line_to = (cur_bottom/100.) + (seqlogo_proportions_L[num]/200.)
             y_to_connect_line_to = (y_to_connect_line_to*hgh) + btm
             if (num < num_logos_right_of_bar):
                 x_left = .6
@@ -1366,7 +1328,7 @@ def plot_stacked_bargraph_with_logos(
             # the ys for the for the line is the same for either left
             # or right SeqLogos
             ys = [y_bot+(height_of_seqlogo*hgh/2), y_to_connect_line_to]
-            SeqLogo_F = SeqLogos_L[num]
+            SeqLogo_F = seqLogo_Fs_L[num]
             ax2 = fig.add_axes(
                     [x_left, y_bot, width_of_seqlogo, height_of_seqlogo*hgh],
                     zorder = 1 )
@@ -1388,9 +1350,9 @@ def plot_stacked_bargraph_with_logos(
                     zorder = 3)
         except IndexError: pass
 
-    if (other_significant == True):
+    if other_significant:
         x_left = .6
-        y_to_draw_line_to = (nums_L[-1]/200.)
+        y_to_draw_line_to = (seqlogo_proportions_L[-1]/200.)
         y_to_draw_line_to = (hgh*y_to_draw_line_to) + btm
         plt.annotate("Other sig. enriched", (x_left+0.01, btm+0.02),
                 fontsize=10, xycoords='figure fraction',
@@ -1484,7 +1446,6 @@ def get_zero_to_one_val(
         print "min_val: {}".format( min_val )
         print "max_val: {}".format( max_val )
 
-
     try:
         assert( zero_to_one_val >= 0. )
     except AssertionError:
@@ -1509,10 +1470,6 @@ def axis_labels_to_percent(
         plt.show()
 
     """
-    # Ignore the passed in position. This has the effect of scaling the
-    # default tick locations.
-    #s = str(100 * y)
-
     # The percent symbol needs escaping in latex
     try:
         if matplotlib.rcParams['text.usetex'] == True:

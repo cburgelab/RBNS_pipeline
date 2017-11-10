@@ -11,8 +11,7 @@ nts_L = ["A", "C", "G", "U"]
 
 
 
-###############################################################################
-######################### < CALLED BY RBNS_logos.py > #########################
+### A set of helper functions called from RBNS_logos.py
 
 
 def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
@@ -21,20 +20,17 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
         protein_name = "",
         total_kmers_in_aligned_F = 10000,
         freq_to_include_in_logo = 0.25 ):
-        #freq_to_include_in_logo = 0.0 ):
     """
-    - INPUT:
-        kmer_PWMs_by_k_classnum_D: see, e.g., the
-        add_kmer_to_existing_kmer_PWMs_by_classnum_D_or_start_new_class()
-        function in ~/RBNS_pipeline/RBNS_logos.py:
+    - Called by get_one_set_logos_based_on_consistent_kmer_orderings()
+        in RBNS_logos.py
 
-        kmer_PWMs_by_classnum_D[class_num] = {
-            "PWM_D": PWM_D,
-            "founding_kmer": kmer,
-            "excess_R": excess_R,
-            "kmer_offset_R_tuples_L":
-                kmer_offset_R_tuples_L,
-            "score_B_by_pos_D": score_B_by_pos_D}
+    - INPUT:
+
+        - kmer_offset_R_T_Ls_by_classnum_D: contains classnum motif logos,
+            each of which is represented by a list of:
+                (kmer, offset, enrich) tuples, where enrich is the stepwise R - 1
+                weight for that kmer
+        - out_motifs_DIR: The output directory will the logos will be saved
     """
     os.system( "mkdir -p {}".format( out_motifs_DIR ) )
 
@@ -47,9 +43,8 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
 
     aligned_kmers_F = ""
 
+    #### Go through each of the motifs
     for motif_class_num in motif_classes_L:
-
-        print "motif_class_num: {}".format( motif_class_num )
 
         kmer_offset_R_tuples_L = kmer_offset_R_T_Ls_by_classnum_D[motif_class_num]
         pprint.pprint( kmer_offset_R_tuples_L )
@@ -66,12 +61,9 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
         ####    and after (e.g., 5, 6 for k = 5)
         offsets_L = list(set([x[1] for x in kmer_offset_R_tuples_L]) )
         offsets_L.sort()
-        print "offsets_L:"
-        pprint.pprint( offsets_L )
         #### The max_offset (NOT the max. of absolute values - e.g., if it's
         ####    [-2, -1, 0, 1], the max_offset would be 1
         max_offset = max( offsets_L )
-        print "max_offset: {}".format( max_offset )
 
         if ( len( offsets_L ) == 1 ):
             total_length = abs( offsets_L[0] ) + k
@@ -91,7 +83,6 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
                 #### If they're the opposite sign
                 else:
                     total_length = abs( offsets_L[-1] ) + abs( offsets_L[0] ) + k
-        print "total_length: {}".format( total_length )
 
         # now convert the counts into numbers that sum up to (approximately)
         # total_kmers_in_txt_file
@@ -129,12 +120,13 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
             freq_nts_this_pos = 1 - (num_blanks_by_pos_D[pos] /\
                     total_kmers_in_aligned_F)
             if (freq_nts_this_pos >= freq_to_include_in_logo ):
-                print "Pos. {0} accepted w/ freq_nts_this_pos: {1}".format(
-                       pos, freq_nts_this_pos )
+                #print "Pos. {0} accepted w/ freq_nts_this_pos: {1}".format(
+                #       pos, freq_nts_this_pos )
                 pos_to_include_L.append( pos )
             else:
-                print "Pos. {0} REJECTED w/ freq_nts_this_pos: {1}".format(
-                       pos, freq_nts_this_pos )
+                #print "Pos. {0} REJECTED w/ freq_nts_this_pos: {1}".format(
+                #       pos, freq_nts_this_pos )
+                pass
         pos_to_include_L.sort()
         pruned_pos_to_include_by_classnum_D[motif_class_num] = pos_to_include_L
         pruned_idx_start = pos_to_include_L[0]
@@ -162,7 +154,7 @@ def make_logos_from_kmer_offset_R_T_Ls_by_classnum_D(
             "seq_logos_by_classnum_D": seq_logos_by_classnum_D,
             "pruned_pos_to_include_by_classnum_D": pruned_pos_to_include_by_classnum_D,
             "aligned_kmers_F": aligned_kmers_F }
-    pprint.pprint( pruned_pos_to_include_by_classnum_D )
+    #pprint.pprint( pruned_pos_to_include_by_classnum_D )
     return return_D
 
 
@@ -175,20 +167,24 @@ def make_seqlogo_from_aligned_kmers_L(
         basename_start,
         aligned_F,
         title = "",
-        starting_pos = None):
+        starting_pos = None ):
     """
     INPUT:
-        - out_startname, the starter path to the files that will be produced
-        ( should be like ".../PTB2_set0" ("_seqlogo.png" or similar will be
-        appended to seq_logo_out_startname)
-        - pwm_f, a position weight matrix file that was created by the
-          make_PWM_from_dict() function above
+        - out_DIR / basename_start: directory with the files, starting
+            with basename_start*, will be made
+        - aligned_F: A file of aligned kmers, from which the frequency in each
+            column will be computed to make the logo
+        - title: If a title should go above the sequence logo
+        - starting_pos: if the first position should be labeled as
+            something other than 1
+
     - See http://weblogo.threeplusone.com/manual.html#CLI for options
     """
     for scale_width in [True, False]:
         ###################### < SEQ LOGO, no axes > #######################
         if scale_width is False:
-            seq_logo_out_F = os.path.join( out_DIR, basename_start + ".seq_logo.noaxes.png" )
+            seq_logo_out_F = os.path.join( out_DIR,
+                    basename_start + ".seq_logo.noaxes.png" )
         else:
             seq_logo_out_F = os.path.join( out_DIR, basename_start +\
                     ".seq_logo.cols_scaled_by_num_nt.noaxes.png" )
@@ -310,15 +306,6 @@ def make_seqlogo_from_aligned_kmers_L(
 
 
 
-######################### </ CALLED BY RBNS_logos.py > ########################
-###############################################################################
-
-
-
-
-
-
-
 def get_kmer_excessR_regardlessofmotifnum_from_F(
         kmers_F ):
     """
@@ -337,8 +324,6 @@ def get_kmer_excessR_regardlessofmotifnum_from_F(
                 pass
     kmer_excessR_T_L.sort( key = lambda x: -1 * x[1] )
     return kmer_excessR_T_L
-
-
 
 
 
@@ -373,6 +358,7 @@ def get_in_both_kmers_F_from_2_indiv_notrequiring_same_logonum(
     - Given 2 kmers_for_logo_F, makes a composite one that includes kmers
         in both, NOT requiring that they be in the same motif #'s in the
         two kmers_for_logo_F's
+
     - Returns: kmer_offset_R_T_Ls_by_classnum_D
     """
     #### Return lists of tuples like:
@@ -430,7 +416,6 @@ def make_final_file_aligned_kmers_weights_per_motif_class(
                 ('TTACA', 0, 0.5255695916563865)],
     - out_aligned_kmers_F:
         the .txt output file that will be made
-
     """
     out_f = open( out_aligned_kmers_F, 'w' )
 
@@ -472,14 +457,12 @@ def make_final_file_aligned_kmers_weights_per_motif_class_only_pruned_positions(
         unpruned_kmers_for_logo_F,
         pruned_pos_to_include_by_classnum_D ):
     """
-    - Give an original, unpruned unpruned_kmers_for_logo_F, makes another
+    - Given an original, unpruned unpruned_kmers_for_logo_F, makes another
         kmers_for_logo_F that ONLY includes the pruned positions for each
         motif class_num, which are included in pruned_pos_to_include_by_classnum_D
 
     - Called by the make_logos_from_kmer_offset_R_T_Ls_by_classnum_D() function
         above
-
-    6/2/16
     """
     pruned_kmers_for_logo_F = unpruned_kmers_for_logo_F.split(".txt")[0] +\
             ".pruned.txt"
@@ -529,7 +512,10 @@ def add_kmer_to_existing_motif_class_or_start_new(
          "motif_class_added_to": motif_class_added_to,
          "offset_used": offset_used}
 
-    5/30/16
+    See possible_comps_by_foundingk_alignk_D below for the different
+        alignment/mismatch combinations that allow a kmer to be added to a logo
+        based on its relationship to the founding kmer of an existing
+        motif_class
     """
     possible_comps_by_foundingk_alignk_D = {
             4: {4: ["side1_mismatch0", "side0_mismatch1", "side2_mismatch0"]},
@@ -664,7 +650,6 @@ def add_kmer_to_existing_motif_class_or_start_new(
                 best_existing_motif_class = existing_motif_class
                 best_offset = offset_to_align_nonhomo
 
-
         #### If the founding_kmer is NOT a homopolymer, do the normal alignment
         else:
             #### best_match_returned_D has keys:
@@ -778,25 +763,27 @@ def make_PWM_file_from_D(
 
 
 def make_seqlogo_from_PWM_F(
-        out_fstart,
+        out_F_start,
         PWM_F,
         title = "",
         first_index = 0 ):
     """
     INPUT:
-        - out_fstart, the starter path to the files that will be produced
+        - out_F_start, the starter path to the files that will be produced
         ( should be like ".../PTB2_set0" ("_seqlogo.png" or similar will be
-        appended to seq_logo_out_fstart)
-        - PWM_f, a position weight matrix file that was created by the
-          make_PWM_from_dict() function above
-    - See http://weblogo.threeplusone.com/manual.html#CLI for options
+        appended to seq_logo_out_F_start)
+
+        - PWM_F, a position weight matrix file that was created by the
+          make_PWM_file_from_D() function above
+
+    - Called by the make_logos_from_PWM_D() function above
     """
     for scale_width in [True, False]:
         ############################# < PROB LOGO > ###########################
         if scale_width is False:
-            prob_logo_out_F = out_fstart + "_probs_logo.png"
+            prob_logo_out_F = out_F_start + "_probs_logo.png"
         else:
-            prob_logo_out_F = out_fstart + "_probs_logo.cols_scaled_by_num_nt.png"
+            prob_logo_out_F = out_F_start + "_probs_logo.cols_scaled_by_num_nt.png"
         cmd_probslogo = [
            'weblogo',
            '-U',
@@ -828,9 +815,9 @@ def make_seqlogo_from_PWM_F(
 
         ############################# < SEQ LOGO > ############################
         if scale_width is False:
-            seq_logo_out_F = out_fstart + "_seq_logo.png"
+            seq_logo_out_F = out_F_start + "_seq_logo.png"
         else:
-            seq_logo_out_F = out_fstart + "_seq_logo.cols_scaled_by_num_nt.png"
+            seq_logo_out_F = out_F_start + "_seq_logo.cols_scaled_by_num_nt.png"
         cmd_seqlogo = [
            'weblogo',
            "-U 'bits'",
@@ -863,18 +850,13 @@ def make_seqlogo_from_PWM_F(
     return seq_logo_out_F, prob_logo_out_F
 
 
-######################### </ CALLED BY RBNS_main.py > #########################
 ###############################################################################
-
-
-
-
+################################## < UTILS > ##################################
 
 def is_homopolymer( kmer ):
     """
     - Returns True or False, depending on if kmer is a homopolymer
     """
-
     nts_S = set( [x for x in kmer] )
     if (len( nts_S ) == 1):
         return True
@@ -887,8 +869,6 @@ def is_homopolymer_w_1_intervening( kmer ):
     """
     - Returns a dictionary depending on if kmer is a homopolymer with
         exactly 1 intervening nt
-
-    - return_D ALWAYS has the key: "is_homopolymer_w_1_intervening"
     """
 
     nts_S = set( [x for x in kmer] )
@@ -932,7 +912,6 @@ def get_best_match_of_kmer_to_foundingkmer(
         return_D = {"best_match_offset": best_match_offset,
             "best_match_side": best_match_side,
             "best_match": best_match}
-    5/30/16
     """
     best_match_offset = None
     best_match_side = None
@@ -996,6 +975,8 @@ def get_best_match_of_kmer_to_foundingkmer(
 
     return return_D
 
+################################# </ UTILS > ##################################
+###############################################################################
 
 
 

@@ -10,7 +10,12 @@ import pprint
 
 import RBNS_utils
 
+
 class RBNS_settings:
+    """
+    - Processes the settings.json files and stores all values in a settings
+        dictionary
+    """
     def __init__(self, settings_file):
         self.settings_file = settings_file
         self.process_settings(settings_file)
@@ -291,11 +296,10 @@ class RBNS_settings:
             exit(1)
 
         self.settings = settings
-        #### Make sure that the results dir. can be made; if not, make
+        #### Make sure that the results_dir can be made; if not, make
         ####    it one directory up from the pipeline directory
         self.rdir = settings['results_dir']
         made_DIR = RBNS_utils.make_dir( self.rdir )
-        print "made_DIR: {}".format( made_DIR )
         if not made_DIR:
             curr_DIR = os.path.dirname( os.path.realpath(__file__) )
             parent_DIR = os.path.dirname( curr_DIR )
@@ -303,7 +307,7 @@ class RBNS_settings:
             settings['results_dir'] = rDIR
             self.rdir = settings['results_dir']
             RBNS_utils.make_dir(self.rdir)
-            print self.rdir
+
         self.edir = os.path.join( settings['results_dir'], "errors" )
         RBNS_utils.make_dir(self.edir)
         self.check_barcode_lens()
@@ -351,7 +355,8 @@ class RBNS_settings:
     def check_barcodes_are_separated( self,
             min_hamming_distance = 2):
         """
-        - Makes sure the barcodes are all totally distinguishable
+        - Makes sure the barcodes are all totally distinguishable (i.e., all
+            have Hamming distance min_hamming_distance away from all others)
         """
         for b1, b2 in itertools.combinations(self.settings['barcodes'], 2):
             hamming_dist = RBNS_utils.hamming_distance(b1, b2)
@@ -364,6 +369,9 @@ class RBNS_settings:
 
 
 class RBNS_lib_settings:
+    """
+    - The settings of a particulary library (input or an PD concentration library)
+    """
     def __init__(self, experiment_settings, barcode, conc):
         self.experiment_settings = experiment_settings
         self.barcode = barcode

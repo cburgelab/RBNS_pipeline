@@ -5,8 +5,6 @@ import itertools
 import gzip
 import subprocess
 import numpy as np
-#import time
-#from scipy import stats
 from math import pow as power
 from math import sqrt, log
 import cPickle as pickle
@@ -17,7 +15,7 @@ import datetime
 
 def file_exists( F, min_size = 0 ):
     """
-    makes sure a given file exists
+    - Makes sure a given file exists
     """
     if not os.path.exists( F ):
         return False
@@ -31,18 +29,18 @@ def file_exists( F, min_size = 0 ):
 
 
 
-def make_dir( dirname ):
-    """
-    Makes the directory; doesn't throw an error if it exists.
-    """
-    if not os.path.exists(dirname):
+def make_dir( DIR ):
+    """ Makes the directory; doesn't throw an error if it exists """
+    if not os.path.exists( DIR ):
         try:
-            os.makedirs(dirname)
+            os.makedirs( DIR )
             return True
         except:
             print 'The directory was made by another thread extremely recently.'
             return False
     return True
+
+
 
 
 def aopen( F, mode = 'r' ):
@@ -53,7 +51,7 @@ def aopen( F, mode = 'r' ):
 
 
 
-def hamming_distance(str1, str2):
+def hamming_distance( str1, str2 ):
     """
     - Returns the Hamming distance of str1 and str2
     """
@@ -68,7 +66,8 @@ def iterNlines(
         N,
         strip_newlines = True ):
     """
-    yields N lines at a time
+    Yields lists of N lines at a time, stripping newlines if strip_newlines
+        is True
     """
     assert ( N >= 1 )
     f = aopen(inFile)
@@ -101,13 +100,17 @@ def get_barcode(
             @D5FF8JN1:4:1101:1220:2099#ACTTGA/1
 
             returns: ACTTGA
+
+    - Note that if your FASTQ file does not adhere to this format, you
+        can add begin_barcode_symb & begin_barcode_symb to the settings.json
+        file, or just change the function return below to suit your needs
     """
     return line.split(begin_barcode_symb)[-1].split(end_barcode_symb)[0]
 
 
 
 
-def yield_kmers(k):
+def yield_kmers( k ):
     """
     An iterater to all kmers of length k in alphabetical order
     """
@@ -138,11 +141,10 @@ def normalize_D(
 def get_kmer_from_index( kmax, index ):
     """
     takes a number (base 4)
-    and returns the kmer it corresponds to in alphabetical order
-    eg.
-    AAAA = 0*1
-    CA = 4*4 + 0*1
-    GC = 3*4 + 1 * 1
+    and returns the kmer it corresponds to in alphabetical order, e.g.:
+        AAAA = 0*1
+        CA = 4*4 + 0*1
+        GC = 3*4 + 1 * 1
     """
     bases = 'ACGT'
     out = ''
@@ -161,13 +163,15 @@ def kmer_in_adapters(
 
     - Generally, the adapters_L passed in are the REVERSE-COMPLEMENT of
         the RNA adapters (i.e., they match the DNA T7 adapter sequences),
-        since we're interested in possible folding between the RNA adapters
+        since we're interested in possible pairing between the RNA adapters
         and the random region
     """
     for adapter in adapters_L:
         if ( adapter.find( kmer ) != -1 ):
             return True
     return False
+
+
 
 
 def return_Zscore(
@@ -217,6 +221,7 @@ def kmer_to_ignore_in_kmer(
     return False
 
 
+
 def pkl_vals_by_kmer_D_w_formatfile(
         vals_by_kmer_D,
         abs_pkl_F ):
@@ -239,7 +244,7 @@ def pkl_vals_by_kmer_D_w_formatfile(
 
 def get_index_from_kmer(kmer):
     """
-    returns the base10 version of the base 4 DNA representation
+    - Returns the base10 version of the base 4 DNA representation
     """
     index = 0
     base2face = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
@@ -372,6 +377,8 @@ def split_splitreadsF_blockidx_T_L_into_lists_max_X(
     return splitreadsF_blockidx_T_Ls_L
 
 
+
+
 def copy_lines_lower_through_upper_to_another_F_without_N(
         orig_F,
         out_F,
@@ -395,7 +402,8 @@ def copy_lines_lower_through_upper_to_another_F_without_N(
 
 def return_num_lines_in_F_WITHOUT_pattern( F, patt ):
     """
-    - Returns an integer of the number of lines in the file F
+    - Returns an integer of the number of lines in the file F that do NOT
+        contain the patt
     """
     if ( F[-3:] == '.gz' ):
         num_lines = 0
@@ -425,10 +433,10 @@ def pkl_with_formatfile(
     """
     - Pickles the object_to_pickle to abs_pkl_F
     - Also makes a "format" file of ".format" appended to the abs_pkl_F
-    with the first num_to_include_in_format pretty-printed
+        with the first num_to_include_in_format pretty-printed
     - num_to_include_in_format can be:
         "all"
-        an int ( will print out that number of keys )
+        an int ( will print out that number of keys in the .format )
     """
     if ( formatfile_ONLY is False ):
         with open( abs_pkl_F, "wb" ) as f_pkl:
@@ -507,12 +515,9 @@ def pkl_with_formatfile(
 
 
 
-
-
-
 def return_rev_comp_seq( seq ):
     """
-    - Returns the reverse complement of an RNA sequence
+    - Returns the reverse complement of a sequence
     """
     from string import maketrans
     if (seq.find("U") == -1):
@@ -523,8 +528,6 @@ def return_rev_comp_seq( seq ):
         trans = maketrans('AUGCNaucgn', 'UACGNuagcn')
         rev_comp_seq = seq.translate(trans)[::-1]
         return rev_comp_seq
-
-
 
 
 

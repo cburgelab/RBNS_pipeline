@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os, sys
-import pprint
-import tempfile
+import pprint, tempfile, glob
 import glob
 import datetime, time
 import shutil
@@ -10,16 +9,12 @@ import math, random
 import cPickle as pickle
 from math import log
 
-#os.sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__)) ) )
-
-import file_IO
 
 import RBNS_Config_helpers
 from RBNS_cluster_utils import launch
 import RBNS_logo_helpers
-
+import file_IO
 import RBNS_plots
-
 import RBNS_utils
 
 
@@ -29,11 +24,10 @@ def return_Config_D(
         config_F ):
     """
     - Returns a settings_D for an input Config_F
-    - See example Config_F at:
-       /net/uorf/data/backup/pfreese/RBNS_motifs/config_Fs/RBNS/TAF15.config_F
     - uses the helper function in RBNS_Config_helpers as a template to get config_D
     """
-    #### using the function in RBNS_Config_helpers
+    #### Parses the config_F to include the following keys in the returned
+    ####    config_D, using the function in RBNS_Config_helpers
     int_settings_L = ["read_len_to_use",
                         "starting_k",
                         "ending_k" ]
@@ -60,6 +54,9 @@ def return_Config_D(
 
 
 class RBNS_motifs:
+    """
+    - Performs the motif logo pipeline
+    """
     def __init__( self, config_F ):
         self.config_F = config_F
         self.process_config_F( config_F )
@@ -259,7 +256,9 @@ def execute_get_logos(
         config_F,
         verbose = False):
     """
-    REQUIRED:
+    - Performs the generation of RBNS motif logos
+
+    REQUIRED in the config_F:
         - input_reads_F
         - pulldown_reads_F
         - protein_name: a unique identifier of this experiment (will be in file
@@ -271,7 +270,6 @@ def execute_get_logos(
         - out_DIR: the directory above that containing the pulldown_reads_F,
             plus the sub_DIR "logos"
         - read_len_to_use: the read length of input_reads_F / pulldown_reads_F
-        - username: pfreese
         - protein_name_for_plotting: a name for use in plots (can include
             spaces)
         - ending_k: the lowest length kmers that will be looked for: 4
@@ -380,7 +378,8 @@ def execute_get_logos(
 def get_logos( settings,
         half ):
     """
-    - Takes in a settings instance from the RBNS_motifs class
+    - Takes in a settings instance from the RBNS_motifs class and gets logos
+        for 'half' 1 or 2
     """
     #### Remove any reads already in the temp_reads_DIR
     os.system( "rm {}".format( os.path.join( settings.temp_reads_DIR, "*.reads" ) ) )
@@ -481,6 +480,7 @@ def get_logos( settings,
             "thresh_Zscore3": mean_R + 3*std_R,
             "thresh_R":\
                 mean_R + (settings.Zscore_kmers_to_keep * std_R)}
+
     #### Write out the settings.orig_R_mean_std_by_k to the log_F
     settings.log_f.write( "\n\n\norig_R_mean_std_by_k:\n" )
     pprint.pprint( settings.orig_R_mean_std_by_k, settings.log_f )
@@ -692,7 +692,7 @@ def get_logos( settings,
         settings.log_f.write( aligned_line )
 
     #### If any kmers_ignored_in_logo_L were encountered
-    if (len( kmers_ignored_in_logo_L ) > 0):
+    if ( len( kmers_ignored_in_logo_L ) > 0 ):
         settings.log_f.write( "The following kmers had significant R's, but were NOT included since they contain one of the kmers_to_ignore (={}):\n\n".format( settings.kmers_to_ignore_L ) )
         pprint.pprint( kmers_ignored_in_logo_L, settings.log_f )
         settings.log_f.write( "\n\n" )
@@ -765,6 +765,7 @@ def get_logos( settings,
     #### The dictionary to return
     return_D = { "kmer_offset_R_T_Ls_by_classnum_D":
             kmer_offset_R_T_Ls_by_classnum_D }
+
     return return_D
 
 
@@ -781,8 +782,8 @@ def get_one_set_logos_based_on_consistent_kmer_orderings(
         kmer_offset_R_T_Ls_by_classnum_D_2,
         settings ):
     """
-    - Using the two sets of logos (more precisely, their constituent kmers,
-        orderings, and R values) each derived from half of the data, makes a
+    - Using the constituent kmers, offsets, and R values of two sets of logos,
+        each derived from half of the data, makes a
         composite logo consisting only of kmers that are consistent in the two
         halve (i.e., kmers that are in the same relative ordering between them)
 
@@ -898,10 +899,10 @@ def get_one_set_logos_based_on_kmers_in_both(
         kmers_F_2,
         settings ):
     """
-    - Using the two sets of logos (more precisely, their constituent kmers,
-        orderings, and R values) each derived from half of the data, makes a
-        composite logo consisting only of kmers that are consistent in the two
-        halve (i.e., kmers that are in the same relative ordering between them)
+    - Using the constituent kmers, offsets, and R values of two sets of logos,
+        each derived from half of the data, makes a
+        composite logo consisting only of kmers that are IN BOTH (in any order)
+        in the two halves
 
     - This function is called at the end of execute_get_logos()
     """
@@ -986,13 +987,10 @@ def make_PWM_file_from_aligned_kmers_F(
         aligned_kmers_F ):
     """
     - Given a (pruned) aligned kmers file, makes a .PWM flat text file
-
-    7/28/15
     """
     out_PWM_F = os.path.join( os.path.dirname( aligned_kmers_F ),
             os.path.basename( aligned_kmers_F ).split( "pruned_" )[-1].\
                     split(".aligned")[0] + ".PWM" )
-    print out_PWM_F
 
     out_f = open( out_PWM_F, 'w' )
 
@@ -1049,11 +1047,6 @@ def make_PWM_files_for_all_aligned_kmers_Fs_in_DIR(
     """
     - Given a DIR, gets all pruned*.aligned_kmers.txt files, and makes a .PWM
         for each using the make_PWM_file_from_aligned_kmers_F() function above
-
-    - Example DIR:
-        /net/nevermind/data/nm/RBNS_results/CELF1/logos/k_6_to_4_Zscoretokeep_2.0/manual
-
-    7/28/15
     """
 
     #### Go through all of the pruned*.aligned_kmers.txt files in the DIR
@@ -1062,7 +1055,7 @@ def make_PWM_files_for_all_aligned_kmers_Fs_in_DIR(
         make_PWM_file_from_aligned_kmers_F( aligned_kmers_F )
 
 
-
+###############################################################################
 ################################## < UTILS > ##################################
 
 
@@ -1070,7 +1063,6 @@ def is_homopolymer( kmer ):
     """
     - Returns True or False, depending on if kmer is a homopolymer
     """
-
     nts_S = set( [x for x in kmer] )
     if (len( nts_S ) == 1):
         return True
@@ -1113,11 +1105,8 @@ def is_homopolymer_w_1_intervening( kmer ):
         return_D = {"is_homopolymer_w_1_intervening": False}
     return return_D
 
-
-
-
-
 ################################# </ UTILS > ##################################
+###############################################################################
 
 
 
@@ -1207,6 +1196,7 @@ def main():
     ######### < / Provide default args. if they weren't passed in > ###########
 
 
+    #### Launch a job for each k / Z-score combination
     for starting_k_L in args.starting_k:
         starting_k = starting_k_L[0]
         basename = config_starting_basename + "_k_{0}".format( starting_k )

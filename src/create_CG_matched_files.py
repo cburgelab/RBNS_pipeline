@@ -4,6 +4,9 @@ import time, gzip, copy, pprint
 
 import RBNS_utils
 
+##### For RNA folding applications, these functions create sets of Pulldown reads
+#####   files that match the distribution of C+G content within input reads
+
 
 
 def make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
@@ -13,6 +16,18 @@ def make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
         threeP_adapt_len,
         min_perc_reads_tokeep_CGbin = 4. ):
     """
+    - Given reads files that contains the RNA folding output (4 lines per read)
+        for the input and various pulldown libraries (PD_reads_w_str_Fs_L),
+        along with the 5' and 3' adapter sequencing lengths (i.e., the read
+        in input_reads_w_str_F should be
+        random_len + len( fiveP_adapt_len ) + len( threeP_adapt_len ),
+
+        calculates the 'bins' of total C+G content to use in the input,
+        considering only bins that have at least min_perc_reads_tokeep_CGbin
+        of the total reads
+
+    - The returned dictionary is like:
+
     {'CGbin_normedfreqofreads_T_L': [(4, 0.011543667774174992),
                                     (5, 0.03146770413989078),
                                     (6, 0.06686856820248833),
@@ -137,8 +152,6 @@ def write_output_F_from_inputreads_and_numreadstokeepbyCG_D(
         a new file (out_reads_w_str_F) containing a subset of reads according
         to numreads_to_keep_by_bin_D, which dictates how many reads containing
         each number of C+G bases should be included
-
-    11/4/17
     """
     #### If the out_reads_w_str_F already exist, PASS
     if ( os.path.exists( out_reads_w_str_F ) and\
@@ -211,8 +224,6 @@ def get_num_reads_by_CplusG_content(
         which bins will be used to match PD reads to
     - Only C+G bins that have at least min_perc_reads_for_CGbin % of reads will
         be used (i.e., don't want to use very lowly populated C+G bins)
-
-    11/4/17
     """
     ##['GAGTTCTACAGTCCGACGATCTGAACCGAACATATTCTACGTGGAATTCTCGGGTGCCAAGG',
     ## '0.819 0.818 0.867 0.867 0.866 0.900 0.857 0.821 0.983 0.182 0.930 0.953 0.176 0.076 0.834 0.848 0.017 0.957 0.196 0.868 0.948 0.202 0.200 0.009 0.012 0.089 0.102 0.968 0.947 0.093 0.787 0.029 0.042 0.120 0.910 0.950 0.232 0.119 0.777 0.781 0.822 0.890 0.988 0.998 0.965 0.961 0.989 0.898 0.851 0.226 0.185 0.874 0.877 0.096 0.074 0.077 0.756 0.746 0.005 0.091 0.103 0.056',
@@ -234,11 +245,6 @@ def get_num_reads_by_CplusG_content(
         num_CG = len( [x for x in rand_read if x in ["C", "G"]] )
         numreads_by_numCG_D[num_CG] += 1
 
-        #if ( sum( numreads_by_numCG_D.values() ) == 100000 ):
-        #    break
-        #print rand_read
-        #pprint.pprint( four_lines_L )
-        #break
     pprint.pprint( numreads_by_numCG_D )
     end_time = time.time()
 
@@ -259,7 +265,6 @@ def get_num_reads_by_CplusG_content(
             "numreads_by_numCG_D": numreads_by_numCG_D,
             'CGbin_normedfreqofreads_T_L': CGbin_normedfreqofreads_T_L }
 
-    #pprint.pprint( return_D )
     return return_D
 
 
@@ -277,11 +282,8 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
     - Given a set of input reads (in_reads_w_str_F) and the number of reads
         to keep for each C+G bin, gets the required number of reads in each bin
         and writes them out to out_reads_w_str_F
-
-    11/4/17
     """
-
-    #### If the out_reads_w_str_F already exist, PASS
+    #### If the out_reads_w_str_F already exist, RETURN
     if ( os.path.exists( out_reads_w_str_F ) and\
             os.stat( out_reads_w_str_F ).st_size > 100000 ):
         return
@@ -365,7 +367,6 @@ def write_output_F_from_inputreads_props_max_given_PD_readstokeepbyCG_D(
 
         if ( num_reads_to_write == 0 ):
             break
-
 
     out_f.close()
     with open( out_log_F, 'w' ) as f:

@@ -3,6 +3,8 @@ import os, sys
 import subprocess
 import pprint
 
+###### A helper function called within RBNS_main that directs a call to the
+#####   logo pipeline
 
 
 def run_multiple_logos(
@@ -13,12 +15,12 @@ def run_multiple_logos(
     - INPUT:
         - a .txt file containing a separate config_F basename (with
             all config_F's needing to be in the config_Fs_DIR) and its options
-            on a separate line, e.g. the file
-        /net/uorf/data/backup/pfreese/RBNS_motifs/config_Fs/RBNS/multiple_RBFOX_MBNL_CELF_genius.txt
+            on a separate line, e.g.:
             contains the lines:
                 MBNL1.config_F --num-reads 2000000 --starting-k 6 --Zscore-kmers-to-keep 3.
                 CELF1.config_F --num-reads 2000000 --starting-k 7 --Zscore-kmers-to-keep 3.
                 RBFOX2.config_F --num-reads 2000000 --starting-k 5 --Zscore-kmers-to-keep 3.
+
     - Note that the argument after --num-reads can be either an int (if
         the # of reads to use) or a float (a proportion of the total # reads in
         the file)

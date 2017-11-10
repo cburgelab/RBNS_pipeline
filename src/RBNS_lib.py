@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import subprocess
 import os, time
-import RBNS_cluster_utils
 import cPickle
 import RBNS_utils
 import numpy as np
 import math
 
+import RBNS_cluster_utils
 
 class RBNS_Lib:
     def __init__(self, experiment_settings, lib_settings):
@@ -74,7 +74,7 @@ class RBNS_Lib:
 
     def load_counts(self):
         self.type2k2counts = {}
-        for count_type in ['naive', 'naive_max_once','stream']:
+        for count_type in ['naive', 'naive_max_once', 'stream']:
             if not self.experiment_settings.isCountRequested(count_type):
                 continue
             self.type2k2counts[count_type] = {}
@@ -163,7 +163,6 @@ class RBNS_Lib:
                 return freqs_D
             except EOFError:
                 time.sleep( 2 )
-        print "EOFERROR after 10 times :("
 
     def get_0nM_enrichments(self, k):
         return self.type2k2counts['naive'][k].get_0nM_enrichments()
@@ -212,10 +211,6 @@ class RBNS_Lib:
             return self.return_enrich_D_pkl_to_input( k )
         elif (self.settings.get_property( "input_library_for_logos" ) == "0"):
             return self.return_enrich_D_pkl_to_0nM( k )
-
-
-
-
 
     def get_max_enrichment(self, k_for_max_enrichment):
         """
@@ -268,7 +263,6 @@ class RBNS_Lib:
         returns a write file handle to the split reads
         """
         return RBNS_utils.aopen(self.get_split_reads(), 'w')
-
 
     def get_naive_enrichment_dict(self, k):
         """
@@ -435,10 +429,15 @@ class RBNS_profile:
                 self.enrichments_to_0nM )}
 
 
+
+
+############################ < HELPER FUNCTIONS > #############################
+
 def norm_libfracs( profile, input_profile ):
     assert profile.k == input_profile.k
     return profile.get_libfracs() / input_profile.get_libfracs()
 
+########################### </ HELPER FUNCTIONS > #############################
 
 
 

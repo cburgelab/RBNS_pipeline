@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys, os, glob, cPickle
 import argparse
-#import shutil
 import gzip
 import collections
 import itertools
@@ -12,8 +11,6 @@ import time
 import multiprocessing
 
 import numpy as np
-#import scipy.stats
-#import matplotlib.pyplot as plt
 
 import file_IO
 import streaming_convergence
@@ -23,12 +20,11 @@ import RBNS_cluster_utils
 import RBNS_lib
 import RBNS_plots
 import RBNS_kmers_by_position
+import RBNS_fold_split_reads
+import create_CG_matched_files
 
 from run_RBNS_logos import run_multiple_logos
 
-import RBNS_fold_split_reads
-import create_CG_matched_files
-#import RBNS_transcriptome_kmers
 
 
 
@@ -36,6 +32,7 @@ import create_CG_matched_files
 
 
 class Bnse:
+    """ Performs all analyses for a Bind-n-Seq experiment """
     def __init__( self,
             settings,
             counts_on_cluster = False,
@@ -108,8 +105,6 @@ class Bnse:
         """
         all_exist = True
         for lib_settings in self.settings.iter_lib_settings():
-            #if not (lib_settings.split_reads_exist()) or \
-            #        (not lib_settings.split_fastqs_exist()):
             if not (lib_settings.split_reads_exist()):
                 all_exist = False
                 break
@@ -132,14 +127,13 @@ class Bnse:
             num_reads_by_barcode_randomlen_D = {}
             for barcode in barcodes:
                 num_reads_by_barcode_randomlen_D[barcode] = {}
-
         else:
             check_for_perfect_adapter = False
             num_reads_by_barcode_randomlen_D = None
 
 
         read_len = self.settings.get_property('read_len')
-        #### Make the split_reads directory
+        #### Make the split_reads directory exists
         RBNS_utils.make_dir( self.rdir_path('split_reads') )
         #### the handles for the .reads files
         barcode2of = self.get_all_barcode_handles()
@@ -272,7 +266,8 @@ class Bnse:
 
     def get_lib_complexity( self ):
         """
-        - Gets the library complexity
+        - Gets the library complexities (i.e., the number of times each sequence
+            occurs in each library)
         """
 
         lib_complexity_F = os.path.join( self.rdir_path('split_reads'),
@@ -329,6 +324,7 @@ class Bnse:
                     f.write( "{}\t".format( str_to_write ) )
                 f.write( "\n" )
 
+
     def get_lib_complexity_of_reads_F( self,
             reads_F,
             remove_sorted = True,
@@ -336,8 +332,6 @@ class Bnse:
         """
         - Gets the library complexity of a reads_F, and writes a report to:
             reads_F + ".lib_complexity"
-
-        12/4/15
         """
 
         ##### If the reads are already sorted, use them, otherwise SORT the reads
@@ -414,10 +408,10 @@ class Bnse:
             rm_cmd = "rm {}".format( sorted_reads_F )
             os.system( rm_cmd )
 
-        #if not make_unique_reads_F:
-        #    rm_cmd = "rm {}".format( unique_reads_F )
-        #    os.system( rm_cmd )
-        #    os.system( "rm -rf {}".format( unique_reads_DIR ) )
+        if not make_unique_reads_F:
+            rm_cmd = "rm {}".format( unique_reads_F )
+            os.system( rm_cmd )
+            os.system( "rm -rf {}".format( unique_reads_DIR ) )
 
         #### Go through and make the 'multiplicity' reads files
         num_times_L = num_reads_by_numtimespres_D.keys()
@@ -440,7 +434,9 @@ class Bnse:
 
     def do_counts( self ):
         """
-        Runs all of the counts
+        - Runs all of the counts (e.g., 'naive' counts to get kmer counts
+            & frequencies, streaming counts, counts by position within the
+            random region)
         """
         counts_types_to_do_L = []
         for count_type in ['naive', 'naive_max_once', 'stream', 'by_position']:
@@ -484,7 +480,7 @@ class Bnse:
             sys.stderr.write('Counting on the cluster seems to now work well.')
             sys.stderr.write('Switching to local counting')
             self.do_counts()
-        raise RuntimeError( 'Counts keep failing :(\nCheck the errors' )
+        raise RuntimeError( '\n\nCounts keep failing!!\n\nCheck the errors\n' )
 
 
 
@@ -519,7 +515,11 @@ class Bnse:
         self.waiting_jobs = []
 
 
-    def needs_calculation(self, lib_settings, count_type, k):
+    def needs_calculation( self,
+            lib_settings,
+            count_type,
+            k ):
+        """ Determines if the count type still needs to be calculated """
         if self.settings.get_force_recount(count_type):
             return True
         return not lib_settings.counts_exist(count_type, k)
@@ -528,9 +528,10 @@ class Bnse:
 
     def initialize_libs( self ):
         """
-        - libs: ALL libraries
-        - plibs: all protein libraries (non-input libraries)
-        - non0_plibs: all libararies w/ protein > 0nM
+        Initialized all of the libraries:
+            - libs: ALL libraries
+            - plibs: all protein libraries (non-input libraries)
+            - non0_plibs: all libararies w/ protein > 0nM
         """
         self.libs = []
         self.plibs = []
@@ -557,7 +558,7 @@ class Bnse:
 
     def calculate_all_enrichments( self ):
         """
-        sorts all the kmers.
+        - Sorts all the kmers in each library by decreasing R value
         """
         print 'Calculating enrichments...\n'
         RBNS_utils.make_dir(self.rdir_path('tables'))
@@ -588,7 +589,8 @@ class Bnse:
         """
         - For each k, determines the most enriched library for:
                 1. Enrichments relative to Input (self.k2most_enriched_lib)
-                2. Enrichments relative to 0 nM (self.self.k2most_enriched_0nM_lib)
+                2. Enrichments relative to 0 nM (self.self.k2most_enriched_0nM_lib),
+                    if there's a 0 nM library
         """
         #######################################################################
         ####### < Always use the 5mers as the 'most enriched' library > #######
@@ -650,12 +652,6 @@ class Bnse:
                     ["input", "Input"] ):
                 self.k2most_enriched_effectivelib_annot[k] = lib.return_conc_annot_like_20_nM()
 
-        #print "\n\nself.k2most_enriched_lib_annot:"
-        #pprint.pprint( self.k2most_enriched_lib_annot )
-        #print "\n\nself.k2most_enriched_0nM_lib_annot:"
-        #pprint.pprint( self.k2most_enriched_0nM_lib_annot )
-        #print "\n\nself.k2most_enriched_effectivelib_annot:"
-        #pprint.pprint( self.k2most_enriched_effectivelib_annot )
         for ks_L in [5, 6, 7, 4]:
             try:
                 self.most_enriched_lib_annot_like_20_nM = self.k2most_enriched_effectivelib_annot[k]
@@ -668,8 +664,8 @@ class Bnse:
         """
         - For each k, sorts kmers by decreasing:
             1. Enrichment (to input)
-            2. Enrichment (to 0nM)
-            3. Binding Fraction
+            2. Enrichment (to 0 nM)
+            3. SKA Binding Fraction
 
         - Keeps these stored in 3 dictionaries, e.g.:
 
@@ -1235,7 +1231,7 @@ class Bnse:
             self.wait_for_jobs_to_complete()
 
 
-    def make_tables(self):
+    def make_tables( self ):
         RBNS_utils.make_dir( self.rdir_path('analyses') )
         self.make_enrichment_table()
         if ( self.quick == "get_enrichments" ):
@@ -1250,39 +1246,39 @@ class Bnse:
             self.make_tables_each_kmer_by_position()
 
 
-    def make_table_header(self,
-            of,
-            include_input = False):
+    def make_table_header( self,
+            out_f,
+            include_input = False ):
         """
         - Writes a header to tables (protein + concentrations)
         - If include_input == True, adds "Input" as the last column
         """
-        of.write('[%s]' % self.settings.get_property('protein_name_for_plotting'))
+        out_f.write('[%s]' % self.settings.get_property('protein_name_for_plotting'))
         for lib in self.libs:
             if (include_input == False):
                 if (lib.is_input() == False):
-                    of.write('\t{0}'.format( lib.get_conc_for_title() ))
+                    out_f.write('\t{0}'.format( lib.get_conc_for_title() ))
             else:
                 if (lib.is_input() == False):
-                    of.write('\t{0}'.format( lib.get_conc_for_title() ))
+                    out_f.write('\t{0}'.format( lib.get_conc_for_title() ))
                 else:
-                    of.write( '\tInput' )
-        of.write( '\n' )
+                    out_f.write( '\tInput' )
+        out_f.write( '\n' )
 
 
-    def make_0nM_table_header(self,
-            of):
+    def make_0nM_table_header( self,
+            out_f ):
         """
         - Writes a header to tables (Only including protein > 0nM concs)
         """
-        of.write('[%s]' % self.settings.get_property('protein_name_for_plotting'))
+        out_f.write('[%s]' % self.settings.get_property('protein_name_for_plotting'))
         for lib in self.libs:
             if (lib.is_input() == False) and (lib.is_0nM() == False):
-                of.write('\t{0}'.format( lib.get_conc_for_title() ))
-        of.write( '\n' )
+                out_f.write('\t{0}'.format( lib.get_conc_for_title() ))
+        out_f.write( '\n' )
 
 
-    def make_counts_and_freqs_tables(self):
+    def make_counts_and_freqs_tables( self ):
         """
         For each k, makes 4 tables (one library per column of each table):
                 1. kmer counts (alphabetical order)
@@ -1295,21 +1291,21 @@ class Bnse:
         for k in self.settings.get_property('ks_to_test_naive'):
             print '\tfor k=%i' % k
 
-            of = self.get_rdir_fhandle('tables/counts_and_freqs',
+            out_f = self.get_rdir_fhandle('tables/counts_and_freqs',
                     '{}mer_counts.txt'.format(k))
-            self.make_table_header(of, include_input = True)
+            self.make_table_header(out_f, include_input = True)
             for kmeri in range(4 ** k):
                 kmer_str = RBNS_utils.get_kmer_from_index(k, kmeri)
-                of.write('\n' + kmer_str)
+                out_f.write('\n' + kmer_str)
                 for lib in self.libs:
-                    of.write('\t%i' %
+                    out_f.write('\t%i' %
                      lib.get_naive_count_by_index(k, kmeri))
-            of.close()
+            out_f.close()
 
             #### frequencies
-            of = self.get_rdir_fhandle('tables/counts_and_freqs',
+            out_f = self.get_rdir_fhandle('tables/counts_and_freqs',
                     '{}mer_freqs.txt'.format(k))
-            self.make_table_header(of, include_input = True)
+            self.make_table_header(out_f, include_input = True)
             total_counts_by_lib_L = []
             for lib in self.libs:
                 total_counts = 0.
@@ -1317,22 +1313,22 @@ class Bnse:
                     total_counts += lib.get_naive_count_by_index(k, kmeri)
                 total_counts_by_lib_L.append( total_counts )
 
-            ##### Dictionaries of the frequencies by kmer in each of the libs
+            ##### Dictionaries out_f the frequencies by kmer in each out_f the libs
             freqs_by_kmer_Ds_L = []
             for lib_num, lib in enumerate( self.libs ):
                 freqs_by_kmer_Ds_L.append( {} )
             for kmeri in range(4 ** k):
                 kmer_str = RBNS_utils.get_kmer_from_index(k, kmeri)
-                of.write('\n' + kmer_str)
+                out_f.write('\n' + kmer_str)
                 for lib_num, lib in enumerate( self.libs ):
                     freq = lib.get_naive_count_by_index(k, kmeri) /\
                             total_counts_by_lib_L[lib_num]
                     #### Add this kmer's freq to its freqs_by_kmer_D
                     freqs_by_kmer_Ds_L[lib_num][kmer_str] = freq
-                    of.write('\t{0:.3g}'.format( freq ))
-            of.close()
+                    out_f.write('\t{0:.3g}'.format( freq ))
+            out_f.close()
 
-            #### Pickle all of the freqs_by_kmer_Ds in a "frequency_Ds" sub_DIR
+            #### Pickle all out_f the freqs_by_kmer_Ds in a "frequency_Ds" sub_DIR
             freqs_Ds_DIR = os.path.join( self.settings.get_rdir(), "frequency_Ds" )
             RBNS_utils.make_dir( freqs_Ds_DIR )
             for lib_num, lib in enumerate( self.libs ):
@@ -1345,29 +1341,29 @@ class Bnse:
 
 
             #### kmer counts sorted by descending enrichment
-            of_sorted = self.get_rdir_fhandle(
+            out_f_sorted = self.get_rdir_fhandle(
               'tables/counts_and_freqs/{}mer_counts.sorted_by_R.txt'.format( k ))
-            self.make_table_header(of_sorted, include_input = True)
+            self.make_table_header(out_f_sorted, include_input = True)
             for kmeri in self.naively_sorted_kmers[k]:
                 kmer_str = RBNS_utils.get_kmer_from_index(k, kmeri)
-                of_sorted.write('\n' + kmer_str)
+                out_f_sorted.write('\n' + kmer_str)
                 for lib in self.libs:
-                    of_sorted.write('\t%i' %
+                    out_f_sorted.write('\t%i' %
                       lib.get_naive_count_by_index(k, kmeri))
-            of_sorted.close()
+            out_f_sorted.close()
 
             #### kmer freqs sorted by descending enrichment
-            of_sorted = self.get_rdir_fhandle(
+            out_f_sorted = self.get_rdir_fhandle(
               'tables/counts_and_freqs/{}mer_freqs.sorted_by_R.txt'.format( k ))
-            self.make_table_header(of_sorted, include_input = True)
+            self.make_table_header(out_f_sorted, include_input = True)
             for kmeri in self.naively_sorted_kmers[k]:
                 kmer_str = RBNS_utils.get_kmer_from_index(k, kmeri)
-                of_sorted.write('\n' + kmer_str)
+                out_f_sorted.write('\n' + kmer_str)
                 for lib_num, lib in enumerate( self.libs ):
                     freq = lib.get_naive_count_by_index(k, kmeri) /\
                             total_counts_by_lib_L[lib_num]
-                    of_sorted.write( '\t{0:.3g}'.format( freq ))
-            of_sorted.close()
+                    out_f_sorted.write( '\t{0:.3g}'.format( freq ))
+            out_f_sorted.close()
         print '\n' + '='*17 + ' </ Making counts & frequencies tables > ' +\
                 '='*17 + "\n\n"
 
@@ -1483,7 +1479,6 @@ class Bnse:
         """
         - Makes tables of the kmers by position within read
         """
-
         out_DIR = os.path.join( self.settings.get_rdir(), "tables/by_position" )
         ks_L = self.settings.get_ks( 'by_position' )
 
@@ -1657,7 +1652,7 @@ class Bnse:
 
     def make_plots( self ):
         """
-        - Makes the desired plots
+        - Makes the specified QC plots
         """
         RBNS_utils.make_dir( self.rdir_path('plots') )
 
@@ -1703,10 +1698,7 @@ class Bnse:
 
         for R_F in Rs_Fs_L:
 
-            print R_F
-
             k = int( R_F.split("mers")[0][-1] )
-            print k
 
             if k not in [4, 5, 6, 7]:
                 continue
@@ -1718,12 +1710,10 @@ class Bnse:
                     kmer = line.strip().split('\t')
                     num_kmers += 1
 
-            print "num_kmers: {}".format( num_kmers )
             #### If there are NO kmers or if there are more than 100 kmers,
             ####    pass
             if ( num_kmers == 0 ) or ( num_kmers > 100 ):
                 continue
-            print "\n\n\n"
 
             out_DIR = os.path.join( R_F.split("/tables")[0],
                     "plots/Z_score_over_concs" )
@@ -1731,11 +1721,8 @@ class Bnse:
                     ".Zscore_of_R_over_concs.pdf"
             out_F = os.path.join( out_DIR, out_basename )
 
-            print "\tPUTATITIVE: {}".format( out_F )
-
             if ( not os.path.exists( out_F ) ) or remake_plots:
 
-                print "\nMaking for: {}\n".format( R_F )
                 RBNS_plots.make_plot_of_Zscores_from_enrichments_txt_F(
                         R_F )
 
@@ -1784,7 +1771,6 @@ class Bnse:
             max_abs_log2_value_by_k_D[k] = 0
 
         for lib in self.libs:
-
             #### First go through all of the libraries and ONLY get the maximum
             ####    log2 value plotted for each lib, and get the maximum over all
             ####    libs, so that the 2nd time this is done, the colormap scale
@@ -1855,8 +1841,6 @@ class Bnse:
         ###### NOW GO THROUGH AND ACTUALLY MAKE THE PLOTS
         for lib in self.libs:
 
-            #pprint.pprint( enriched_kmers_Ls_by_k_D )
-
             returned_D = RBNS_kmers_by_position.analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
                 enriched_kmers_Ls_by_k_D,
                 self.settings.get_property('protein_name'),
@@ -1878,6 +1862,7 @@ class Bnse:
 
         #### Make a composite out_F of all of the figs
         for k in ks_L:
+
             ################## < ABSOLUTE RATIO OF KMER FREQS > ###############
             conc_for_fastqs_L = [lib.get_conc_for_fastq() for lib in self.libs]
             #### First, DON'T plot, but just get the max. log_2(R) plotted
@@ -1915,7 +1900,6 @@ class Bnse:
         """
         - Makes a scatter of the nt frequencies at each position in the read
         """
-
         out_DIR = os.path.join( self.settings.get_rdir(), "plots" )
         out_basename = "{}_freqs_by_read_position.pdf".format(
                 self.settings.get_property( 'protein_name_for_plotting' ) )
@@ -1995,8 +1979,6 @@ class Bnse:
         RBNS_plots.plot_multiple_inOnePDF(
                 figs_L,
                 out_pdf_F )
-
-
 
 
 
@@ -2354,13 +2336,14 @@ class Bnse:
             1. the Input & Most Enriched conc. reads ONLY (if
                     all_or_mostenrichedconc_only = "all" ), or
             2. ALL concentrations
-            by blocks of 1,000,000 reads.
+            by blocks of 1,000,000 reads (by default, this can be changed in
+                RBNS_fold_split_reads.py)
+
         - Output:
             - Each 'block' has an out_F like:
                 /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/w_struc/by_block/
                     IGF2BP1_input.block_0.w_struc.reads.gz OR
                     IGF2BP1_320.block_0.w_struc.reads.gz
-
         """
         print "\n\nEXECUTING fold_each_reads_by_block_F() in RBNS_main.py\n\n"
 
@@ -2425,7 +2408,9 @@ class Bnse:
                             split_reads_F,
                             self.settings.get_property('temp'),
                             block_idx,
-                            self.settings.get_property('scratch_dir') )
+                            self.settings.get_property('scratch_dir'),
+                            self.settings.get_property( 'rna_5p_adapter' ),
+                            self.settings.get_property( 'rna_3p_adapter' ) )
                 else:
                     p = multiprocessing.Process(
                             target = RBNS_fold_split_reads.get_Ppaired_DotBracket_andletters_for_reads_F_for_block,
@@ -2433,7 +2418,9 @@ class Bnse:
                                 split_reads_F,
                                 self.settings.get_property('temp'),
                                 block_idx,
-                                self.settings.get_property('scratch_dir') ) )
+                                self.settings.get_property('scratch_dir'),
+                                self.settings.get_property( 'rna_5p_adapter' ),
+                                self.settings.get_property( 'rna_3p_adapter' ) ) )
                     jobs_L.append( p )
 
             #### Start each of the jobs and wait for them to finish
@@ -2441,6 +2428,8 @@ class Bnse:
             [t.join() for t in jobs_L]
 
         print "\n\nFINISHED with fold_each_reads_by_block_F() in RBNS_main.py\n\n"
+
+
 
 
     def make_all_w_str_CG_matched_Fs( self,
@@ -2535,8 +2524,6 @@ class Bnse:
         - Given that reads have been folded in separate 'block' files, each of
             which have num_reads_per_block, combines all of the individual
             block files into one file
-
-        11/4/17
         """
         print "\n\nEXECUTING combine_all_block_Fs_into_one_file() in RBNS_main.py\n\n"
 
@@ -2673,8 +2660,10 @@ class Bnse:
 
     def get_subopt_sampled_DotBracket_structures_for_each_lib( self ):
         """
-
-        11/4/17
+        - Given folded & CG-matched files of reads in each library, will take
+            each of the reads and get a stochastic sample of (by default, 20)
+            structures sampled in proportion to their frequencies in the
+            thermodynamic ensemble
         """
         print "\n\nEXECUTING get_subopt_sampled_DotBracket_structures_for_each_lib() in RBNS_main.py\n\n"
 
@@ -2707,8 +2696,6 @@ class Bnse:
             pulldown concentration, for the top kmers, calculates the Ppaired
             over each position of the motif and 10 flanking positions in the
             input & pulldown libraries
-
-        11/8/17
         """
         print "\n\nEXECUTING get_Ppaired_over_top_enriched_kmers_and_flanking() in RBNS_main.py\n\n"
 
@@ -2838,7 +2825,8 @@ class Bnse:
         for tupl in reads_Fs_annot_tuples_L:
             if ( tupl[1] == "Input" ):
                 valtosorton_tuple_T_L.append( [-1, tupl] )
-            elif ( tupl[1] == "0 nM" ) and ( self.settings.get_property( "input_library_for_logos" ) != "input"):
+            elif ( tupl[1] == "0 nM" ) and ( self.settings.get_property(\
+                    "input_library_for_logos" ) != "input"):
                 valtosorton_tuple_T_L.append( [-1, (tupl[0], "Input")] )
             else:
                 valtosorton_tuple_T_L.append( [int(tupl[1].split(" ")[0]), tupl] )
@@ -2864,14 +2852,14 @@ class Bnse:
 
 
     def rdir_path(self, *args):
-        """ the Results directory """
+        """ the main Results directory """
         return os.path.join( self.settings.get_rdir(), *args)
 
 
-    def get_barcode_match(self, barcode, barcodes):
+    def get_barcode_match( self, barcode, barcodes ):
         """
-        takes a barcode and returns the one it matches (within the
-        specified hamming distance
+        - Takes a barcode and returns the one it matches (within the
+            allowed Hamming distance)
         """
         if barcode in barcodes:
             return barcode
@@ -2911,7 +2899,6 @@ class Bnse:
                 for lib_settings in self.settings.iter_lib_settings()}
 
 
-
     def get_rdir_fhandle( self, *args ):
         """
         Returns an opened file handle
@@ -2926,10 +2913,7 @@ class Bnse:
 
 
 
-
-
-
-
+######## Counts are performed and pickled below
 
 def count_naive(
         split_reads,
@@ -3179,9 +3163,6 @@ def parse_args():
     parser.add_argument("--counts-on-cluster",
             help = "Runs on this node, but submits count jobs to cluster.",
             action = 'store_true' )
-    parser.add_argument("--fold",
-                        help = "Performs folding (Ppaired) analyses",
-                        action='store_true')
 
     args = parser.parse_args()
 
@@ -3198,7 +3179,10 @@ def parse_args():
 
 
 
-def launch_on_cluster(args):
+def launch_on_cluster( args ):
+    """
+    - If the job is to be launched onto the cluster
+    """
     settings_file = os.path.abspath(args.settings_file)
     python_script = os.path.abspath(sys.argv[0])
 
@@ -3229,7 +3213,7 @@ def launch_on_cluster(args):
 
 def main():
     """
-    - runs Bnse
+    - runs analyses for Bnse, a Bind-N-Seq experiment
     """
 
     args = parse_args()
@@ -3239,10 +3223,8 @@ def main():
         launch_on_cluster( args )
     else:
         settings = RBNS_settings.RBNS_settings( args.settings_file )
-        #b = Bnse(settings, args.counts_on_cluster)
-        #### quick should be True (for getting settings), or
-        ####    'get_enrichments'
-        #b = Bnse(settings, args.counts_on_cluster, quick = 'get_enrichments' )
+        #### quick should be True (for getting settings ONLY)
+        #b = Bnse(settings, args.counts_on_cluster, quick = True )
         b = Bnse( settings, args.counts_on_cluster )
 
 
@@ -3254,15 +3236,6 @@ def main():
 
 if __name__ == '__main__':
 
-    #if __package__ is None:
-    #    #print sys.path
-    #    from os import sys, path
-    #    this_DIR = os.path.dirname(path.abspath(__file__))
-    #    #print this_DIR
-    #    if this_DIR not in sys.path:
-    #        sys.path.prepend( this_DIR )
-
-    #print sys.path
     main()
 
 

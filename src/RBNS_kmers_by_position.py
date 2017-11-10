@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 import os, sys
 import inspect
+import math
 import cPickle as pickle
 import glob
 import pprint
 
-import math
 
 import RBNS_utils
-
 import RBNS_plots
 
 
@@ -18,7 +17,7 @@ import RBNS_plots
 def analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
         ordered_kmers_to_consider_Ls_by_k_D,
         protein,
-        r_DIR,
+        main_DIR,
         conc_for_fastq,
         ks_L,
         ordered_kmers_description_fnames = "",
@@ -69,7 +68,7 @@ def analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
     """
     return_D = {}
 
-    frequency_Ds_DIR = os.path.join( r_DIR, "frequency_Ds" )
+    frequency_Ds_DIR = os.path.join( main_DIR, "frequency_Ds" )
     RBNS_utils.make_dir( frequency_Ds_DIR )
 
     if (conc_for_fastq == "input"):
@@ -87,7 +86,7 @@ def analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
 
         #### Load the previously pickled dictionary of kmer frequencies at each
         ####    position
-        D_F = os.path.join( r_DIR,
+        D_F = os.path.join( main_DIR,
                 "frequency_Ds/{0}_{1}.{2}mer.frequencies.by_position.pkl".format(
                     protein, conc_for_fastq, k ) )
         with open( D_F ) as f:
@@ -177,9 +176,10 @@ def analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
                 "control_kmers_to_log2_Obs_over_Exp_L_D": control_kmers_to_log2_Obs_over_Exp_L_D}
 
 
-        if (make_output_Fs == True):
+        if make_output_Fs:
+
             #### Make the out_F
-            out_DIR = os.path.join( r_DIR, "tables/by_position" )
+            out_DIR = os.path.join( main_DIR, "tables/by_position" )
             RBNS_utils.make_dir( out_DIR )
 
             #### < Make a table of KL div by decreasing R of sig. R kmers > ###
@@ -237,7 +237,7 @@ def analyze_freqs_by_position_one_barcodes_ordered_kmers_to_consider(
 
 def analyze_freqs_by_position_one_library(
         protein,
-        r_DIR,
+        main_DIR,
         conc_for_fastq,
         ks_L,
         make_output_Fs = True,
@@ -267,7 +267,7 @@ def analyze_freqs_by_position_one_library(
     else:
         conc_label = "{} nM lib.".format( conc_for_fastq )
 
-    frequency_Ds_DIR = os.path.join( r_DIR, "frequency_Ds" )
+    frequency_Ds_DIR = os.path.join( main_DIR, "frequency_Ds" )
     RBNS_utils.make_dir( frequency_Ds_DIR )
 
     #### go through each of the k's
@@ -367,7 +367,7 @@ def analyze_freqs_by_position_one_library(
 
         if (make_output_Fs == True):
             #### Make the out_F
-            out_DIR = os.path.join( r_DIR, "tables/by_position" )
+            out_DIR = os.path.join( main_DIR, "tables/by_position" )
             RBNS_utils.make_dir( out_DIR )
 
             out_basename = "{0}mers.{1}greatest_KL_div_of_freqs_across_read.txt".format(
@@ -412,7 +412,7 @@ def plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
         ordered_kmers_to_consider_Ls_by_k_D,
         bottom_kmers_to_consider_Ls_by_k_D,
         protein,
-        r_DIR,
+        main_DIR,
         conc_for_fastqs_L,
         ks_L,
         ordered_kmers_description_fnames = "",
@@ -424,18 +424,12 @@ def plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
         as well as the bottom kmers, where enrichment at each position
         is defined as the freq. at that position /
         the average input freq ( averaged over all position )
-    - Output PDF (if make_output_Fs == True) is like:
-        /net/utr/data/atf/pfreese/RBNS_results/HNRNPH2/tables/by_position/
-        5mers.sig_R_2.0std.abs_freqs_across_read.pdf
-
-    9/13/16
     """
     assert( conc_for_fastqs_L[0] == "input" )
 
     return_D = {}
 
-    frequency_Ds_DIR = os.path.join( r_DIR, "frequency_Ds" )
-
+    frequency_Ds_DIR = os.path.join( main_DIR, "frequency_Ds" )
 
     #### go through each of the k's
     for k in ks_L:
@@ -456,7 +450,7 @@ def plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
 
             #### Load the previously pickled dictionary of kmer frequencies at each
             ####    position
-            D_F = os.path.join( r_DIR,
+            D_F = os.path.join( main_DIR,
                     "frequency_Ds/{0}_{1}.{2}mer.frequencies.by_position.pkl".format(
                         protein, conc_for_fastq, k ) )
             with open( D_F ) as f:
@@ -542,12 +536,13 @@ def plot_abs_ratio_of_kmers_at_each_position_relative_to_input_lib(
                 "abs_freqs_figs_L": abs_freqs_figs_L }
 
 
-        if (make_output_Fs == True):
+        if make_output_Fs:
+
             #### Make the out_F
-            out_DIR = os.path.join( r_DIR, "tables/by_position" )
+            out_DIR = os.path.join( main_DIR, "tables/by_position" )
             RBNS_utils.make_dir( out_DIR )
 
-            #### < Make a table of KL div by decreasing R of sig. R kmers > ###
+            #### Make a table of KL div by decreasing R of sig. R kmers
             out_basename = "{0}.{1}mers.sig_R_{2}.abs_freqs_across_read.pdf".format(
                     protein, k, ordered_kmers_description_fnames.replace(" ", "_") )
             out_F = os.path.join( out_DIR, out_basename )
