@@ -26,7 +26,7 @@ An example minimal settings file is provided as test_data/settings.RBFOX3.json. 
 
 ## Running RBNS_main.py
 
-Once the .settings file & FASTQ are in place, the RBNS_pipeline can be run in place with the following commands (with paths adjusted for your system):
+Once the .settings file & FASTQ are in place, the RBNS_pipeline can be run in place with the following commands:
 	
 	source activate rnbs_pipeline (should have already been done upon installation)
 	python src/RBNS_main.py test_data/settings.RBFOX3.json (or wherever your future settings.json file is)
