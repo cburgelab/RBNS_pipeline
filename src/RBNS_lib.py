@@ -11,9 +11,12 @@ import math
 import RBNS_cluster_utils
 
 class RBNS_Lib:
-    def __init__(self, experiment_settings, lib_settings):
+    def __init__( self,
+            experiment_settings,
+            lib_settings ):
         """
-        Constructor for Library class
+        An RBNS library's settings & function to return information
+            about that library
         """
         self.experiment_settings = experiment_settings
         self.lib_settings = lib_settings
@@ -292,6 +295,7 @@ class RBNS_Lib:
 
 
 class RBNS_profile:
+    """ The 'profile' (enrichments & counts) of an RBNS library """
     def __init__(self, lib_settings, k, count_type):
         self.count_type = count_type
         self.k = k
