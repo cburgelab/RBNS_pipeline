@@ -12,10 +12,10 @@ The RBNS pipeline is a set of bioinformatics tools to analyze data from high-thr
 
 ##### Requirements
 
-The RBNS pipeline is designed to run on Linux. In addition, it requires the following software to be pre-installed on your computing environment:
+The RBNS pipeline is designed to run on a Linux computing cluster, optionally with jobs parallelized by submitting them to a PBS/Torque queue. In addition, it requires the following software to be pre-installed on your computing environment:
 
 - Python (tested on version 2.7.11)
-- The [Miniconda](https://conda.io/miniconda.html) or [anaconda](https//docs.anaconda.com/) package manager (if you just download this, be source to 'source ~/.bashrc' after so that 'conda' is on your $PATH).
+- The [Miniconda](https://conda.io/miniconda.html) or [anaconda](https//docs.anaconda.com/) package manager (if you download this now, be sure to 'source ~/.bashrc' after so that 'conda' is on your $PATH).
 - The [Weblogo](http://weblogo.threeplusone.com/manual.html) program (if sequence motif logos are to be produced.)
 - The [forgi](https://viennarna.github.io/forgi/) library (if RNA secondary secondary structure analysis is performed).
 - The [RNAfold](https://www.tbi.univie.ac.at/RNA/) program (if RNA secondary secondary structure analysis is performed).
@@ -25,11 +25,11 @@ If you need help installing any of these tools, see the [detailed documentation]
 
 ## Download and install the RBNS_pipeline
 
-The easiest way to get the RBNS pipeline software is to clone our repository. This will ensure you always have access to the latest version. 
+The easiest way to get the RBNS pipeline software is to clone this repository. This will ensure you always have access to the latest version. 
 
 	https://pfreese@bitbucket.org/pfreese/rbns_pipeline.git
 
-After cloning our repository, run the included installation script: 
+After cloning the repository, run the included installation script: 
 
 	cd rbns_pipeline
 	./install.sh
@@ -41,7 +41,7 @@ While you can also use the RBNS pipeline without this step by installing all nec
 
 ## Test the RBNS pipeline with example data
 
-In this public version, the RBNS_pipeline is able to analyze RBNS (Lambert et al., 2014) data. You can find example input files in the test_data/ directory within the repository. These were derived from experiments that assayed the RBFOX3 protein.
+In this version, the RBNS_pipeline is able to analyze RBNS (Dominguez et al., 2017) data. You can find example input files in the test_data/ directory within the repository. These were derived from experiments that assayed the RBFOX3 protein.
 
 Once the script has finished running, you can find the output from the pipeline in the results_dir given in the settings.RBFOX3.json file.
 
@@ -50,8 +50,8 @@ Once the script has finished running, you can find the output from the pipeline 
 
 The inputs to the RBNS_pipeline are described in more detail [here](docs/input_files.md). Here is a quick summary:
 
-- A settings .json file describing the samples.
-- A FASTQ file containing the sequencing reads to be analyzed.
+- A settings .json file describing the experiment, different libraries assayed, and what counts & optional additional functionalities are to be performed by the pipeline.
+- A FASTQ file containing the multiplexed sequencing reads from the different libraries to be split & analyzed.
 
 You can find examples of all of these files in the test_data/ folder. It is probably easiest to just take a look at these files first. You can run the RBNS_pipeline on this example and reproduce the logo below.
 
@@ -59,16 +59,17 @@ You can find examples of all of these files in the test_data/ folder. It is prob
 
 The complete set of output files is described in [here](docs/output_information.md). Briefly, output should include:
 
-- Split read files for each library
+- Split read files for each library, including files containing QC stats about the number of reads in each library & library complexity.
 - Enrichment tables of kmers
+- Pickled intermediate files of kmer counts & frequencies.
 
-Optional output files include:
+Additional output files depending on functionalities requested include:
 
-- SKA library fraction and other tables
+- SKA (Streaming kmer Assignment) library fraction and nt. frequencies & kmer enrichments at different positions of the random region
 - Sequence motif logos as shown below
 - RNA secondary structure analyses of the top enriched kmers
 
-An example of an output logo for RBFOX3 is:
+An example of an output logo for RBFOX3, derived from computing the significantly enriched 5mers through an interative procedure at a Z-score > 3 cutoff, is:
 
 ![RBFOX3_logo](img/RBFOX3_5mer_seqlogos.png)
 
