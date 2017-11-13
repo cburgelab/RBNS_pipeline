@@ -24,5 +24,5 @@ Weblogo must be able to be called from the command line. 'pip install weblogo' w
 
 ## RNAfold
 
-RNAfold program can be downloaded from [Vienna RNA](https://www.tbi.univie.ac.at/RNA/#download). Once downloaded and installed, be sure to add it to your $PATH (i.e. /path-to-RNAfold/bin should be on your path, so 'RNAfold' from anywhere on the command line begins the program).
+The RNAfold program can be downloaded from [Vienna RNA](https://www.tbi.univie.ac.at/RNA/#download). Once downloaded and installed, be sure to add it to your $PATH (i.e. /path-to-RNAfold/bin should be on your path, so 'RNAfold' from anywhere on the command line begins the program).
 

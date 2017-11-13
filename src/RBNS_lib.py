@@ -15,7 +15,7 @@ class RBNS_Lib:
             experiment_settings,
             lib_settings ):
         """
-        An RBNS library's settings & function to return information
+        An RBNS library's settings & functions to return information
             about that library
         """
         self.experiment_settings = experiment_settings
