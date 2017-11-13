@@ -1047,6 +1047,8 @@ def make_rectangular_heatmap_NT_freq_across_read_all_libs(
     gca().spines['left'].set_color('none')
     gca().spines['right'].set_color('none')
     gca().tick_params(labelcolor="w", top='off',left="off",right="off",\
+                    bottom="off", labelbottom = "off", labeltop = "off",
+                    labelleft = "off", labelright= 'off')
 
     ax_left = 0.1
     ax_right = 0.85

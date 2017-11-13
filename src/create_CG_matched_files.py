@@ -20,7 +20,7 @@ def make_out_Fs_of_PD_reads_that_match_input_CplusG_content(
         for the input and various pulldown libraries (PD_reads_w_str_Fs_L),
         along with the 5' and 3' adapter sequencing lengths (i.e., the read
         in input_reads_w_str_F should be
-        random_len + len( fiveP_adapt_len ) + len( threeP_adapt_len ),
+        random_len + len( fiveP_adapt_len ) + len( threeP_adapt_len ) ),
 
         calculates the 'bins' of total C+G content to use in the input,
         considering only bins that have at least min_perc_reads_tokeep_CGbin
