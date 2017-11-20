@@ -120,6 +120,20 @@ def yield_kmers( k ):
 
 
 
+
+def return_all_kmers_L( k ):
+    """
+    - Returns a list of all kmers
+    """
+    kmers_L = []
+    for kmer in yield_kmers( k ):
+        kmers_L.append( kmer )
+    return kmers_L
+
+
+
+
+
 def normalize_D(
         D,
         vals_sum_to = 1.):
@@ -529,6 +543,113 @@ def return_rev_comp_seq( seq ):
         rev_comp_seq = seq.translate(trans)[::-1]
         return rev_comp_seq
 
+
+
+
+
+
+
+
+def merge_PDFs_mult_on_page(
+        PDFs_L,
+        out_F,
+        direc = "horizontal" ):
+    """
+    - Merges N PDFs (absolute paths to PDFs in PDFs_L) into the out_F.
+
+        PDF_1   PDF_2
+        PDF_3   PDF_4
+
+
+    - If there are 2 PDFs to combine, if direc == "horizontal":
+        PDF_1   PDF_2
+                                                  "vertical":
+        PDF_1
+        PDF_2
+    """
+    assert( len( PDFs_L ) <= 16 )
+    if ( len( PDFs_L ) <= 2 ):
+        Nsquared_or_div2 = 2
+    elif ( len( PDFs_L ) <= 4 ):
+        Nsquared_or_div2 = 4
+    elif ( len( PDFs_L ) <= 6 ):
+        Nsquared_or_div2 = 6
+    elif ( len( PDFs_L ) <= 8 ):
+        Nsquared_or_div2 = 8
+    elif ( len( PDFs_L ) <= 9 ):
+        Nsquared_or_div2 = 9
+    elif ( len( PDFs_L ) <= 12 ):
+        Nsquared_or_div2 = 12
+    else:
+        Nsquared_or_div2 = 16
+
+    from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
+    from PyPDF2.generic import RectangleObject
+    from pdfnup import generateNup
+
+    output = PdfFileWriter()
+
+    for F in PDFs_L:
+        input = PdfFileReader( file( F , "rb") )
+        img = input.getPage(0)
+        output.addPage( img )
+
+    outputStream = file( out_F , "wb")
+    output.write(outputStream)
+    outputStream.close()
+
+    combined_PDF_F = out_F.split( ".pdf" )[0] + "-{}up.pdf".format(Nsquared_or_div2)
+    if ( Nsquared_or_div2 == 4 ):
+
+        cmd = "pdfnup -n 4 --output {0} {1}".format(
+                combined_PDF_F, out_F )
+        #print cmd
+        os.system( cmd )
+        #print "\n\tDONE!\n\n"
+    elif ( Nsquared_or_div2 == 2 ):
+
+        if ( direc == "vertical" ):
+            cmd = "pdfnup -n 2 --output {0} {1}".format(
+                    combined_PDF_F, out_F )
+        elif ( direc == "horizontal" ):
+            cmd = "pdfnup -n 2 --output {0} {1}".format(
+                    combined_PDF_F, out_F )
+        #print cmd
+        os.system( cmd )
+        #print "\n\tDONE!\n\n"
+    else:
+        generateNup( out_F, Nsquared_or_div2 )
+
+    print cmd
+
+    return combined_PDF_F
+
+
+
+
+
+
+def return_human_readable_time_from_secs( num_secs ):
+    """
+    - Returns a string like:
+        1 hours, 0 seconds OR
+        1 minutes, 1 seconds
+    """
+    remain_secs = int( num_secs )
+
+    human_readable_str = ""
+
+    if (remain_secs >= 3600):
+        hours_remaining = remain_secs / 3600
+        human_readable_str += "{0} hours, ".format(hours_remaining)
+        remain_secs = (remain_secs % 3600)
+    if (remain_secs >= 60):
+        mins_remaining = remain_secs / 60
+        human_readable_str += "{0} minutes, ".format(mins_remaining)
+        remain_secs = (remain_secs % 60)
+        human_readable_str += "{0} seconds".format(remain_secs)
+
+    return human_readable_str
 
 
 

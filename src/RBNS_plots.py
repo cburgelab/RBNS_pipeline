@@ -1395,35 +1395,962 @@ def plot_stacked_bargraph_with_logos(
 
 
 
-def merge_4_PDFs_on_1_page(
-        PDFs_L,
-        out_F ):
+
+
+
+
+
+def plot_Ppaired_ratio_of_motif(
+        avg_fold_probs_by_motif_and_pos_D,
+        annots_L,
+        motifs_of_interest_L,
+        pulldown_annot,
+        out_F_start,
+        read_len,
+        title = "",
+        plot_signif = True,
+        skip_if_already_exists = True,
+        dicts_DIR = "/net/nevermind/data/nm/RBNS_results/pulldown_libs/analyses/structure",
+        include_legend = True ):
     """
-    - Merges 4 PDFs (absolute paths to PDFs in PDFs_L into
-        out_F
+    - Makes a plot of P_paired(pulldown)/P_paired(input) for each motif (kmer)
+        in motifs_of_interest_L
 
-        PDF_1   PDF_2
-        PDF_3   PDF_4
+    - avg_fold_probs_by_motif_and_pos_D has format:
+        avg_fold_probs_by_motif_and_pos_D[lib_annot][motif_num][motif_pos]=\
+                motif_avg_bp_prob
 
+    - lib_annot is like: "input" or "80_nM"
+
+    - out_F_start is a file start, to which "Ppairedanalysis_{kmer}.pdf" will be added for
+        each of the kmers in motifs_of_interest_L
+
+    - If dicts_DIR exists, it should have the mean & stdev. of each kmer in 0 nM
+        libraries by position within the motif, to get significance - if these
+        do not exist, it will be skipped
     """
-    from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
-    from PyPDF2.generic import RectangleObject
-    from pdfnup import generateNup
+    k = len( motifs_of_interest_L[0] )
 
-    output = PdfFileWriter()
+    ##### The dictionary of folded input reads of a particular read_len to use
+    ####    for the mean & st.dev. for determining significance
+    mean_STD_Ppaired_L_by_pos_for_each_kmer_D = {}
+    if plot_signif:
+        Ds_DIR = os.path.join( dicts_DIR, "all_RBPs_0nM_fld_all{0}mers".format( k ) )
+        for kmer in motifs_of_interest_L:
+            #### Each D has format:
+            ## {0: {'mean': 0.99960544423771491, 'std_ratio': 0.015726334560542742},
+            ## 1: {'mean': 0.99460381791438968, 'std_ratio': 0.005669277527848831},
+            ## 2: {'mean': 0.99608373137948758, 'std_ratio': 0.005302256957967216},
+            ## 3: {'mean': 0.99783444433615498, 'std_ratio': 0.0051178830567742625},
+            ## 4: {'mean': 0.99797767093026613, 'std_ratio': 0.0081676955702984725}}
+            D_basename = "0nM.{0}.len_{1}.mean_and_std_by_pos_D.pkl".format(
+                    kmer,
+                    read_len )
+            D_F = os.path.join( Ds_DIR, D_basename )
+            if not os.path.exists( D_F ):
+                plot_signif = False
+            else:
+                mean_STD_Ppaired_L_by_pos_for_each_kmer_D[kmer] =\
+                    pickle.load( open( D_F ) )
 
-    for F in PDFs_L[:4]:
-        print F
-        input = PdfFileReader( file( F , "rb") )
-        img = input.getPage(0)
-        output.addPage( img )
 
-    outputStream = file( out_F , "wb")
-    output.write(outputStream)
-    outputStream.close()
+    #### get the concentrations to plot (all except the input lib.)
+    conc_keys_to_plot_L = []
+    for annot in annots_L:
+        if ( annot.find( "input" ) == -1 ):
+            conc_keys_to_plot_L.append( annot )
 
-    generateNup( out_F, 4 )
+    # sort the concentrations to plot in ascending order
+    try:
+        conc_keys_to_plot_L.sort( key = lambda x: int( x.split("_")[0] ) )
+    except:
+        conc_keys_to_plot_L.sort()
+    num_concs_to_plot = len( conc_keys_to_plot_L )
+    labels_to_plot_L = [x.replace( "_", " " ) for x in conc_keys_to_plot_L]
 
+    # go through each of the kmers of interest, making a new plot for each one
+    PDF_Fs_by_motifidx_D = {}
+    PDF_Fs_by_motif_D = {}
+    lower_upper_sig_by_kmer_pos_D = {}
+    ratios_by_motif_pos_D = {}
+    sigB_by_motif_pos_D = {}
+    for motif_num, motif in enumerate( motifs_of_interest_L ):
+
+        ratios_by_motif_pos_D[motif] = {}
+        sigB_by_motif_pos_D[motif] = {}
+
+        by_motif_D = {}
+        lower_upper_sig_by_kmer_pos_D[motif] = {}
+
+        out_F = out_F_start + "_Ppairedanalysis_ratio.{0}.pdf".format( motif )
+        out_abs_F = out_F_start + "_Ppairedanalysis_abs.{0}.abs.pdf".format( motif )
+        out_merged_F = out_F_start + "_Ppaired_analysis.{0}.pdf".format( motif )
+        two_up_merged_F = out_F_start + "_Ppaired_analysis.{0}-2up.pdf".format( motif )
+        if os.path.exists( out_merged_F ) and ( os.stat( out_merged_F ).st_size > 2000 ) and\
+                skip_if_already_exists:
+            continue
+
+        out_Ds_DIR = os.path.join( os.path.dirname( out_F_start ), 'Ds' )
+        os.system( "mkdir -p {}".format( out_Ds_DIR ) )
+        out_D_F = os.path.join( out_Ds_DIR,
+                "Ppaired_Ls_by_libannot_D.{0}.{1}.pkl".format( motif_num, motif ) )
+
+        # a list of the 0 concentration ratios, which will be used to get the
+        # st.dev. and mean for determining if the pulldown library is signif.
+        zero_conc_ratios_L = []
+        pulldown_conc_ratios_L = []
+
+        abs_Ppaireds_by_motifpos_annot_D = {}
+
+        # get the input avg. bp of prob.
+        input_avg_prob_by_position_D = {}
+        conc_avg_prob_by_position_D = {}
+        L_of_Ls_to_plot = []
+        for motif_pos in range(len( motif )):
+
+            abs_Ppaireds_by_motifpos_annot_D[motif_pos] = {}
+            ratios_to_plot_L = []
+            # go through each of the concentrations to plot
+            for lib_annot in conc_keys_to_plot_L:
+
+                conc_avg_prob =\
+                    avg_fold_probs_by_motif_and_pos_D[lib_annot][motif_num][motif_pos]
+                try:
+                    input_avg_prob =\
+                        avg_fold_probs_by_motif_and_pos_D["input"][motif_num][motif_pos]
+                except KeyError:
+                    input_avg_prob = avg_fold_probs_by_motif_and_pos_D["{0}_input".format(lib_annot)][motif_num][motif_pos]
+                abs_Ppaireds_by_motifpos_annot_D[motif_pos][lib_annot] = conc_avg_prob
+                abs_Ppaireds_by_motifpos_annot_D[motif_pos]['input'] = input_avg_prob
+
+                ratio = conc_avg_prob / input_avg_prob
+                #print "Ratio for motif {0}, position {1}, library {2} is: {3}".format(
+                #        motif, motif_pos, lib_annot, ratio)
+                ratios_to_plot_L.append( ratio )
+                if ( lib_annot == "0_nM" ):
+                    zero_conc_ratios_L.append( ratio )
+                elif ( lib_annot == pulldown_annot ):
+                    pulldown_conc_ratios_L.append( ratio )
+                    ratios_by_motif_pos_D[motif][motif_pos] = ratio
+                try:
+                    by_motif_D[lib_annot].append( ratio )
+                except KeyError:
+                    by_motif_D[lib_annot] = [ratio]
+
+            L_of_Ls_to_plot.append( ratios_to_plot_L )
+
+            #### If the +/- 2 std. ratios for significance should be calculated
+            if plot_signif:
+                mean = mean_STD_Ppaired_L_by_pos_for_each_kmer_D[motif][motif_pos]["mean"]
+                std = mean_STD_Ppaired_L_by_pos_for_each_kmer_D[motif][motif_pos]["std_ratio"]
+                ratio_below_signif = mean - (2*std)
+                ratio_above_signif = mean + (2*std)
+                lower_upper_sig_by_kmer_pos_D[motif][motif_pos] =\
+                        {"lower_sig_ratio": ratio_below_signif,
+                                "upper_sig_ratio": ratio_above_signif}
+
+        if ( len( avg_fold_probs_by_motif_and_pos_D ) > 12 ):
+            many_legend_annots = True
+            figsize=(6, 4)
+        else:
+            many_legend_annots = False
+            figsize = (7, 3)
+        fig2 = plt.figure( dpi = 300, figsize = figsize )
+        plt.tick_params(\
+                axis='x',          # changes apply to the x-axis
+                which='both',      # both major and minor ticks are
+                bottom='off',      # ticks along the bottom edge are
+                top='off',         # ticks along the top edge are
+                labelbottom='off')
+        ax2 = fig2.add_axes( [0.05, 0.05, 0.9, 0.9] )
+        ax2.spines['top'].set_color('none')
+        ax2.spines['bottom'].set_color('none')
+        ax2.spines['left'].set_color('none')
+        ax2.spines['right'].set_color('none')
+        ax2.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+        # THE WIDTH OF ONE LETTER'S SPACE
+        one_letter_width = 0.11
+        # the LEFTMOST VERTICAL LINE (also the start of the main horiz. line)
+        main_H_line_min = 0.1
+        main_H_line_max = main_H_line_min + (one_letter_width * len( motif ))
+
+        if ( title != "" ):
+            plt.annotate( title, ((main_H_line_min+main_H_line_max)/2., 0.8),
+                    fontsize=18,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'center')
+
+        LFC_height = 0.2
+        LFC_0 = 0.62
+
+        # offset to set the colored bars
+        offset_for_bars = one_letter_width*0.5
+
+        in_bar_width = one_letter_width / (num_concs_to_plot + 1)
+        max_ratio = 0.
+        min_ratio = 20.
+        for pos, nt in enumerate( motif ):
+            enrich_handles_L = 0
+            handles_L = []
+            this_letter_center = main_H_line_min + ((pos+0.5)*one_letter_width)
+            # get the enrichment of each of the 4 types
+            for struc_num, ratio in enumerate(L_of_Ls_to_plot[pos]):
+
+                # convert the ratio to a LFC
+                try:
+                    lfc = math.log( ratio, 2 )
+                except ValueError:
+                    print "VALUE ERROR FOR motif {0}, position {1}".format(
+                            motif, pos)
+                    lfc = 0.
+
+                max_ratio = max(max_ratio, ratio)
+                min_ratio = min(min_ratio, ratio)
+
+                lft = this_letter_center + (((-0.5*num_concs_to_plot)+struc_num)*in_bar_width)
+                btm = min( LFC_0, LFC_0+(lfc*LFC_height) )
+                wdth = in_bar_width
+                hgh = abs(lfc) * LFC_height
+                axb = fig2.add_axes([lft, btm, wdth, hgh])
+                axb.set_xlim(0, 1.)
+                axb.set_ylim(0, 1.)
+                axb.spines['top'].set_color('none')
+                axb.spines['bottom'].set_color('none')
+                axb.spines['left'].set_color('none')
+                axb.spines['right'].set_color('none')
+                #ax.tick_params(labelcolor="w", top='off',left="off",right="off",\
+                        #        bottom="off")
+                axb.tick_params(which = 'both', top='off',left="off",right="off",\
+                    bottom="off", labelbottom = "off", labeltop = "off",
+                    labelleft = "off", labelright= 'off')
+                color_num_to_use = light_to_dark_D[num_concs_to_plot][struc_num]
+                hand = axb.bar(0., 1., width = 1.,
+                        #color = shades_of_red_D[color_num_to_use], edgecolor = 'k')
+                        color = shades_of_blue_D[color_num_to_use], edgecolor = 'k')
+                handles_L.append( hand )
+
+        # add lines at 0 and +/-1 LFC
+        axbg = fig2.add_axes( [0., 0., 1., 1.] )
+        axbg.patch.set_visible(False)
+        axbg.spines['top'].set_color('none')
+        axbg.spines['bottom'].set_color('none')
+        axbg.spines['left'].set_color('none')
+        axbg.spines['right'].set_color('none')
+        axbg.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+
+
+        potential_ratios_to_plot = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 1.2,
+                1.5, 1.7, 2, 2.5, 3, 5, 10]
+        # get the lowest ratio to plot
+        min_ratio_to_plot = 0.
+        min_ratio_to_plot_idx = -1
+        max_ratio_to_plot = 20.
+        max_ratio_to_plot_idx = -1
+        # get the
+        for ratio_idx, ratio in enumerate( potential_ratios_to_plot ):
+            if (ratio < min_ratio):
+                min_ratio_to_plot = ratio
+                min_ratio_to_plot_idx = ratio_idx
+        for ratio_idx, ratio in enumerate( potential_ratios_to_plot ):
+            if (ratio < max_ratio):
+                pass
+            else:
+                max_ratio_to_plot = ratio
+                max_ratio_to_plot_idx = ratio_idx
+                break
+
+        axbg.axhline( y=LFC_0, xmin = main_H_line_min, xmax = main_H_line_max,
+                color='k', linestyle='-', linewidth = 2)
+        plt.annotate("P$_{paired}$(RBNS)/", (0.03, LFC_0), fontsize=12,
+                xycoords='figure fraction',
+                verticalalignment = 'center', horizontalalignment = 'right',
+                rotation = 90)
+        plt.annotate("P$_{paired}$(input)", (0.053, LFC_0), fontsize=12,
+                xycoords='figure fraction',
+                verticalalignment = 'center', horizontalalignment = 'right',
+                rotation = 90)
+        # go through and annotate all of the desired ratios
+        for ratio_idx in range( min_ratio_to_plot_idx, max_ratio_to_plot_idx + 1 ):
+            ratio = potential_ratios_to_plot[ratio_idx]
+            height_on_axis = LFC_0 + (LFC_height * math.log( ratio, 2 ))
+            plt.annotate(str( ratio ), (main_H_line_min - 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'right')
+            plt.annotate(str( ratio ), (main_H_line_max + 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'left')
+            # also add mini-horizontal lines inside the plot
+            axbg.axhline( y=height_on_axis,
+                    xmin = main_H_line_min,
+                    xmax = main_H_line_min + 0.01,
+                    color='k', linestyle='-', linewidth = 1)
+            axbg.axhline( y=height_on_axis,
+                    xmin = main_H_line_max - 0.01,
+                    xmax = main_H_line_max,
+                    color='k', linestyle='-', linewidth = 1)
+        # make a vertical line at the left and right ends
+        min_v_line = LFC_0 + (LFC_height * math.log( min_ratio_to_plot, 2 )) + 0.002
+        max_v_line = LFC_0 + (LFC_height * math.log( max_ratio_to_plot, 2 )) - 0.002
+        axbg.axvline( x = main_H_line_min,
+                ymin = min_v_line,
+                ymax = max_v_line,
+                color='k', linestyle='-', linewidth = 2)
+        axbg.axvline( x = main_H_line_max,
+                ymin = min_v_line,
+                ymax = max_v_line,
+                color='k', linestyle='-', linewidth = 2)
+
+        if (include_legend == True):
+            # if motif is below length 7, plot it to the right
+            if many_legend_annots:
+                legend_fontsize = 8
+                box_height = 0.035 * num_concs_to_plot
+                if (len(motif) < 7):
+                    leg = axbg.legend( handles_L, labels_to_plot_L,
+                            loc=(main_H_line_max + 0.05, LFC_0 - (box_height/2.)),
+                            fancybox=True, fontsize = legend_fontsize, borderaxespad=0)
+                else:
+                    leg = axbg.legend( handles_L, labels_to_plot_L,
+                            loc=(main_H_line_min + ((len(motif)/2.)-0.5)*one_letter_width,
+                                max_v_line),
+                            fancybox=True, fontsize=11, borderaxespad=0)
+            else:
+                legend_fontsize = 11
+                box_height = 0.08 * num_concs_to_plot
+                if (len(motif) < 7):
+                    leg = axbg.legend( handles_L, labels_to_plot_L,
+                            loc=(main_H_line_max + 0.05, LFC_0 - (box_height/2.)),
+                            fancybox=True, fontsize = legend_fontsize, borderaxespad=0)
+                else:
+                    leg = axbg.legend( handles_L, labels_to_plot_L,
+                            loc=(main_H_line_min + ((len(motif)/2.)-0.5)*one_letter_width,
+                                max_v_line),
+                            fancybox=True, fontsize=11, borderaxespad=0)
+
+
+        # annotate the letters below the bars
+        for pos, nt in enumerate( motif.replace("T", "U") ):
+            this_letter_center = main_H_line_min + ((pos+0.5)*one_letter_width)
+            plt.annotate(nt, (this_letter_center, min_v_line - 0.02), fontsize= 24,
+                    xycoords='figure fraction',
+                    verticalalignment = 'top', horizontalalignment = 'center')
+            # annotate with a star if the pulldown ratio is significant
+            if plot_signif:
+                pulldown_ratio = pulldown_conc_ratios_L[pos]
+                ratio_below_signif = lower_upper_sig_by_kmer_pos_D[motif][pos]["lower_sig_ratio"]
+                ratio_above_signif = lower_upper_sig_by_kmer_pos_D[motif][pos]["upper_sig_ratio"]
+                if (pulldown_ratio >= ratio_above_signif) or\
+                        (pulldown_ratio <= ratio_below_signif):
+                    sigB_by_motif_pos_D[motif][pos] = True
+                    plt.annotate("*", (this_letter_center, min_v_line - 0.16), fontsize=12,
+                            xycoords='figure fraction',
+                            verticalalignment = 'center', horizontalalignment = 'center')
+                else:
+                    sigB_by_motif_pos_D[motif][pos] = False
+
+        fig2.savefig( out_F )
+
+        with open( out_D_F, "wb" ) as f:
+            pickle.dump( by_motif_D, f )
+
+        PDF_Fs_by_motifidx_D[motif_num] = out_F
+        PDF_Fs_by_motif_D[motif] = out_F
+
+        #######################################################################
+        #######################################################################
+        ####### < Now make a stacked barplot of the *absolute* Ppaired > ######
+        num_concs_to_plot_inc_input = num_concs_to_plot + 1
+        fig3 = plt.figure( dpi = 300, figsize = figsize )
+        plt.tick_params(\
+                axis='x',          # changes apply to the x-axis
+                which='both',      # both major and minor ticks are
+                bottom='off',      # ticks along the bottom edge are
+                top='off',         # ticks along the top edge are
+                labelbottom='off')
+        ax2 = fig3.add_axes( [0.05, 0.05, 0.9, 0.9] )
+        ax2.spines['top'].set_color('none')
+        ax2.spines['bottom'].set_color('none')
+        ax2.spines['left'].set_color('none')
+        ax2.spines['right'].set_color('none')
+        ax2.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+        if ( title != "" ):
+            plt.annotate( title, ((main_H_line_min+main_H_line_max)/2., 0.85),
+                    fontsize=18,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'center')
+        # THE WIDTH OF ONE LETTER'S SPACE
+        one_letter_width = 0.11
+        # the LEFTMOST VERTICAL LINE (also the start of the main horiz. line)
+        main_H_line_min = 0.1
+        main_H_line_max = main_H_line_min + (one_letter_width * len( motif ))
+
+        height_of_0Ppaired = .2
+        height_of_1Ppaired = .8
+
+        # offset to set the colored bars
+        offset_for_bars = one_letter_width*0.5
+
+        in_bar_width = one_letter_width / (num_concs_to_plot_inc_input + 1)
+        max_ratio = 0.
+        min_ratio = 20.
+        for pos, nt in enumerate( motif ):
+
+            enrich_handles_L = 0
+            handles_L = []
+            this_letter_center = main_H_line_min + ((pos+0.5)*one_letter_width)
+
+            #### Go through all of the lib annots
+            for struc_num, lib_annot in enumerate( ['input'] + conc_keys_to_plot_L ):
+
+                Ppaired = abs_Ppaireds_by_motifpos_annot_D[pos][lib_annot]
+
+
+                lft = this_letter_center + (((-0.5*num_concs_to_plot_inc_input)+struc_num)*in_bar_width)
+                btm = height_of_0Ppaired
+                wdth = in_bar_width
+                hgh = (height_of_1Ppaired - height_of_0Ppaired) * Ppaired
+                axb = fig3.add_axes([lft, btm, wdth, hgh])
+                axb.set_xlim(0, 1.)
+                axb.set_ylim(0, 1.)
+                axb.spines['top'].set_color('none')
+                axb.spines['bottom'].set_color('none')
+                axb.spines['left'].set_color('none')
+                axb.spines['right'].set_color('none')
+                #ax.tick_params(labelcolor="w", top='off',left="off",right="off",\
+                        #        bottom="off")
+                axb.tick_params(which = 'both', top='off',left="off",right="off",\
+                    bottom="off", labelbottom = "off", labeltop = "off",
+                    labelleft = "off", labelright= 'off')
+
+                if ( lib_annot == 'input' ):
+                    color = '#808080'
+                else:
+                    color_num_to_use = light_to_dark_D[num_concs_to_plot][struc_num-1]
+                    color = shades_of_orange_D[color_num_to_use]
+                hand = axb.bar(0., 1., width = 1.,
+                        #color = shades_of_red_D[color_num_to_use], edgecolor = 'k')
+                        color = color, edgecolor = 'k')
+                handles_L.append( hand )
+
+        axbg = fig3.add_axes( [0., 0., 1., 1.] )
+        axbg.patch.set_visible(False)
+        axbg.spines['top'].set_color('none')
+        axbg.spines['bottom'].set_color('none')
+        axbg.spines['left'].set_color('none')
+        axbg.spines['right'].set_color('none')
+        axbg.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+
+        ##### Plot the bottom & right & left lines
+        axbg.axhline( y = height_of_0Ppaired, xmin = main_H_line_min, xmax = main_H_line_max,
+                color='k', linestyle='-', linewidth = 2)
+        plt.annotate("P$_{paired}$", (0.053, (height_of_0Ppaired+height_of_1Ppaired)/2),
+                fontsize=14,
+                xycoords='figure fraction',
+                verticalalignment = 'center', horizontalalignment = 'right',
+                rotation = 90)
+        axbg.axvline( x = main_H_line_min,
+                ymin = height_of_0Ppaired,
+                ymax = height_of_1Ppaired,
+                color='k', linestyle='-', linewidth = 2)
+        axbg.axvline( x = main_H_line_max,
+                ymin = height_of_0Ppaired,
+                ymax = height_of_1Ppaired,
+                color='k', linestyle='-', linewidth = 2)
+
+        for Ppaired in [0., 0.2, 0.4, 0.6, 0.8, 1.]:
+
+            height_on_axis = height_of_0Ppaired + ( height_of_1Ppaired - height_of_0Ppaired ) * Ppaired
+
+            plt.annotate( "{:.1f}".format( Ppaired ),
+                    (main_H_line_min - 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'right')
+            plt.annotate( "{:.1f}".format( Ppaired ),
+                    (main_H_line_max + 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'left')
+            # also add mini-horizontal lines inside the plot
+            if ( Ppaired > 0. ):
+                axbg.axhline( y=height_on_axis,
+                        xmin = main_H_line_min,
+                        xmax = main_H_line_min + 0.01,
+                        color='k', linestyle='-', linewidth = 1)
+                axbg.axhline( y=height_on_axis,
+                        xmin = main_H_line_max - 0.01,
+                        xmax = main_H_line_max,
+                        color='k', linestyle='-', linewidth = 1)
+
+        if (include_legend == True):
+            legend_fontsize = 8
+            box_height = 0.035 * num_concs_to_plot_inc_input
+            if (len(motif) < 7):
+                leg = axbg.legend( handles_L, ['Input'] + labels_to_plot_L,
+                        loc = ( main_H_line_max + 0.05, height_of_0Ppaired + 0.12 ),
+                        fancybox = True, fontsize = legend_fontsize + 2, borderaxespad=0 )
+
+        # annotate the letters below the bars
+        for pos, nt in enumerate( motif.replace("T", "U") ):
+            this_letter_center = main_H_line_min + ((pos+0.5)*one_letter_width)
+            plt.annotate(nt, (this_letter_center, height_of_0Ppaired - 0.02), fontsize= 24,
+                    xycoords='figure fraction',
+                    verticalalignment = 'top', horizontalalignment = 'center')
+        fig3.savefig( out_abs_F )
+
+        #### Merge the out_F & out_abs_F into the out_merged_F
+        RBNS_utils.merge_PDFs_mult_on_page(
+                [out_abs_F, out_F],
+                out_merged_F,
+                direc = 'vertical' )
+
+        #### Move the -2up.pdf to the original merged F
+        #os.system( "mv {0} {1}".format( two_up_merged_F, out_merged_F ) )
+
+    return_D = {
+            "ratios_by_motif_pos_D": ratios_by_motif_pos_D,
+            "sigB_by_motif_pos_D": sigB_by_motif_pos_D,
+            "PDF_Fs_by_motifidx_D": PDF_Fs_by_motifidx_D,
+            "PDF_Fs_by_motif_D": PDF_Fs_by_motif_D }
+    return return_D
+
+
+
+
+
+
+def plot_enrichment_by_5_Ppaired_bins(
+        enrichments_by_kmer_conc_bin_D,
+        annots_L,
+        motifs_of_interest_L,
+        Ppaired_bin_upper_limits_L,
+        out_F_start,
+        read_len,
+        conc_keys_to_plot_override_L = [],
+        plot_signif = True,
+        title = "",
+        dicts_DIR = "/net/nevermind/data/nm/RBNS_results/pulldown_libs/analyses/structure",
+        include_legend = True ):
+    """
+    - out_F_start is a file start, to which "enrichment_by_Ppairedbin_{kmer}.pdf" will be added for
+        each of the kmers in motifs_of_interest_L
+
+    - If dicts_DIR exists, it should have the mean & stdev. of each kmer in 0 nM
+        libraries by position within the motif, to get significance - if these
+        do not exist, it will be skipped
+    """
+    k = len( motifs_of_interest_L[0] )
+
+    sig_Ds_by_kmer_D = {}
+    if plot_signif:
+        for kmer in motifs_of_interest_L:
+            D_F = os.path.join( dicts_DIR, "all_RBPs_RbyPpairedBin_0nM_fld_all{}mers".format( k ),
+                    "0nM.{0}.len_{1}.mean_and_std_of_adjbins_by_lowerbin_D.pkl".format(
+                        kmer, read_len ) )
+            if os.path.exists( D_F ):
+                sig_Ds_by_kmer_D[kmer] = pickle.load( open( D_F ) )
+            else:
+                plot_signif = False
+
+    motifs_of_interest_L = [x.replace("U", "T") for x in motifs_of_interest_L]
+    Ppaired_bin_upper_limits_L.sort()
+
+    #### If the concentrations were providen directly (e.g., if weighted_by_CG)
+    if ( len( conc_keys_to_plot_override_L ) > 0 ):
+        conc_keys_to_plot_L = conc_keys_to_plot_override_L
+    # get the concentrations to plot (all except the input lib.)
+    else:
+        conc_keys_to_plot_L = []
+        for annot in annots_L:
+            if ( annot.find( "input") == -1 ):
+                conc_keys_to_plot_L.append( annot )
+
+    # sort the concentrations to plot in ascending order
+    try:
+        conc_keys_to_plot_L.sort( key = lambda x: float(x.split("_")[0]) )
+    except ValueError:
+        conc_keys_to_plot_L.sort()
+
+    num_concs_to_plot = len( conc_keys_to_plot_L )
+    num_Ppaired_bins = len( Ppaired_bin_upper_limits_L )
+
+    sigB_by_kmer_conc_bin_D = {}
+    for kmer in motifs_of_interest_L:
+        sigB_by_kmer_conc_bin_D[kmer] = {}
+        for conc in conc_keys_to_plot_L:
+            sigB_by_kmer_conc_bin_D[kmer][conc] = {}
+
+    # make the labels for the different Ppaired bins
+    labels_to_plot_L = []
+    lower_limit = 0
+    lower_limit_string = ""
+    for bin_num, upper_limit in enumerate(Ppaired_bin_upper_limits_L):
+        upper_limit_string = "{0:.2f}".format(upper_limit).rstrip("0")
+        if (bin_num == 0):
+            label = "0-{0}".format( upper_limit_string )
+        elif (bin_num == len(Ppaired_bin_upper_limits_L) - 1):
+            label = "{0}-1".format( lower_limit_string )
+        else:
+            label = "{0}-{1}".format( lower_limit_string, upper_limit_string )
+        lower_limit_string = upper_limit_string
+        labels_to_plot_L.append( label )
+
+    # go through each of the kmers of interest, making a new plot for each one
+    for motif_num, kmer in enumerate( motifs_of_interest_L ):
+
+        out_F = out_F_start + "_enrichment_by_Ppairedbin_{0}.pdf".format(
+                kmer.replace("T","U") )
+        if os.path.exists( out_F ):
+            continue
+
+        pulldown_conc_ratios_L = []
+
+        # get the input avg. bp of prob.
+        input_avg_prob_by_position_D = {}
+        conc_avg_prob_by_position_D = {}
+        L_of_Ls_to_plot = []
+
+        max_enrich= 0.
+        for conc in conc_keys_to_plot_L:
+            ratios_to_plot_L = []
+            for Ppaired_bin in range(len(Ppaired_bin_upper_limits_L)):
+                enrich = enrichments_by_kmer_conc_bin_D[kmer][conc][Ppaired_bin]
+                ratios_to_plot_L.append( enrich )
+                max_enrich = max( max_enrich, enrich )
+            L_of_Ls_to_plot.append( ratios_to_plot_L )
+
+        # get the vertical enrichments to plot, based on the max. enrichment
+        potential_upper_enriches_L = [2, 3, 4, 5, 8, 10, 15, 20, 25, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300]
+        upper_lim_found_B = False
+        for upper_lim in potential_upper_enriches_L:
+            if (upper_lim > max_enrich) and (upper_lim_found_B == False):
+                upper_lim_found_B = True
+                if (upper_lim == 2):
+                    enriches_to_mark_L = [1,1.2,1.4,1.6,1.8,2.]
+                elif (upper_lim == 3):
+                    enriches_to_mark_L = [1,1.4,1.8,2.2,2.6,3]
+                elif (upper_lim <= 8):
+                    enriches_to_mark_L = range( 1, upper_lim + 1 )
+                elif (upper_lim == 10):
+                    enriches_to_mark_L = [1, 2, 4, 6, 8, 10]
+                elif (upper_lim <= 50):
+                    enriches_to_mark_L = [1] + range( 5, upper_lim+1, 5)
+                elif (upper_lim <= 120):
+                    enriches_to_mark_L = [1] + range( 10, upper_lim+1, 10)
+                else:
+                    enriches_to_mark_L = [1] + range( 50, upper_lim+1, 50)
+                break
+
+        fig2 = plt.figure( dpi=300 )
+        plt.tick_params(\
+                axis='x',          # changes apply to the x-axis
+                which='both',      # both major and minor ticks are
+                bottom='off',      # ticks along the bottom edge are
+                top='off',         # ticks along the top edge are
+                labelbottom='off')
+        #ax = fig.add_axes([.2,0,.6,1])
+        #ax.spines['top'].set_color('none')
+        #ax.spines['bottom'].set_color('none')
+        #ax.tick_params(labelcolor="w", top='off',bottom="off")
+        ax_for_lines = fig2.add_axes( [0., 0., 1., 1.], zorder = 2, alpha = 0. )
+        #ax_for_lines.patch.set_visible(False)
+        ax_for_lines.spines['top'].set_color('none')
+        ax_for_lines.spines['bottom'].set_color('none')
+        ax_for_lines.spines['left'].set_color('none')
+        ax_for_lines.spines['right'].set_color('none')
+        ax_for_lines.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+
+        axis_x_left = 0.05
+        axis_width = 0.9
+        axis_y_bottom = 0.05
+        axis_height = 0.9
+
+        #ax2 = fig2.add_axes(
+        #        [axis_x_left, axis_y_bottom, axis_width, axis_height] )
+        #ax2.spines['top'].set_color('none')
+        #ax2.spines['bottom'].set_color('none')
+        #ax2.spines['left'].set_color('none')
+        #ax2.spines['right'].set_color('none')
+        #ax2.tick_params(which = 'both', top='off',left="off",right="off",\
+        #ax2.tick_params(which = 'both', top='off',\
+                #bottom="off", labelbottom = "off", labeltop = "off",
+                #labelleft = "off", labelright= 'off')
+        # THE WIDTH OF ONE LETTER'S SPACE
+        one_letter_width = axis_width / (len(conc_keys_to_plot_L) + 1.)
+        # the LEFTMOST VERTICAL LINE (also the start of the main horiz. line)
+        num_letters_for_buffer_width = 0.35
+        main_H_line_min = 0.1
+        main_H_line_max = main_H_line_min + (one_letter_width*(num_concs_to_plot + num_letters_for_buffer_width))
+
+        # get the middle of the horizontal line, which will be used for the
+        # center of the title
+        middle_of_plot = (main_H_line_max + main_H_line_min)/2.
+
+        enrich_0 = 0.2
+        enrich_max = 0.8
+        one_enrich_unit_height = (enrich_max - enrich_0)/enriches_to_mark_L[-1]
+        # the middle of the plot vertically, for the center of the legend
+        middle_plot_vertical = (enrich_0 + enrich_max)/2.
+
+        # offset to set the colored bars
+        offset_for_bars = one_letter_width*0.5
+
+        in_bar_width = one_letter_width / (num_Ppaired_bins + 1)
+
+            ###### Plot the significance over all 4 bins
+            #if plot_signif:
+
+            #    abs_delta_last_minus_first = abs( L_of_Ls_to_plot[pos][-1] - L_of_Ls_to_plot[pos][0] )
+            #    #### Divide this by the overall enrichment so the scales are the same
+            #    normed_abs_delta_last_minus_first = abs_delta_last_minus_first / avg_enrich_all_bins
+
+            #    std_this_motif_all_bins = sig_Ds_by_kmer_D[kmer]['0_to_4']['std']
+            #    if ( normed_abs_delta_last_minus_first >= 2 * std_this_motif_all_bins ):
+
+            #        lft_of_conc = this_letter_center - ( 2.3 * in_bar_width )
+            #        right_of_conc = this_letter_center + ( 2.3 * in_bar_width )
+
+            #        ax_for_lines.axhline( y = enrich_0 - 0.03,
+            #            xmin = lft_of_conc, xmax = right_of_conc,
+            #            color = 'k', linestyle = '-', linewidth = 1 )
+            #        ax_for_lines.axvline( x = lft_of_conc, ymin = enrich_0 - 0.028, ymax = enrich_0,
+            #            color = 'k', linestyle = '-', linewidth = 1 )
+            #        ax_for_lines.axvline( x = right_of_conc, ymin = enrich_0 - 0.028, ymax = enrich_0,
+            #            color = 'k', linestyle = '-', linewidth = 1 )
+            #        plt.annotate( "**", ( this_letter_center, enrich_0 - 0.045 ), fontsize=12,
+            #                xycoords='figure fraction',
+            #                verticalalignment = 'center', horizontalalignment = 'center' )
+            #        sigB_by_kmer_conc_bin_D[kmer][conc]["0_to_4"] = True
+            #    else:
+            #        sigB_by_kmer_conc_bin_D[kmer][conc]["0_to_4"] = False
+
+        enrich_0 = 0.2
+        enrich_max = 0.8
+        axbg = fig2.add_axes( [0., 0., 1., 1.], zorder = 2, alpha = 0. )
+        #axbg.patch.set_visible(False)
+        axbg.spines['top'].set_color('none')
+        axbg.spines['bottom'].set_color('none')
+        axbg.spines['left'].set_color('none')
+        axbg.spines['right'].set_color('none')
+        axbg.tick_params(which = 'both', top='off',left="off",right="off",\
+                bottom="off", labelbottom = "off", labeltop = "off",
+                labelleft = "off", labelright= 'off')
+        # make a dotted horizontal line for the average enrichment for each
+        # concentration
+        avg_Rs_L = []
+        for pos, conc in enumerate( conc_keys_to_plot_L ):
+            this_letter_center = main_H_line_min + ((pos+0.5 +\
+                (num_letters_for_buffer_width)/2.)*one_letter_width)
+            avg_enrich = enrichments_by_kmer_conc_bin_D[kmer][conc]["overall"]
+            avg_Rs_L.append( avg_enrich )
+            #height_on_axis = enrich_0 + (avg_enrich*one_enrich_unit_height)
+            #axbg.axhline( y = height_on_axis,
+            #        xmin = this_letter_center - (0.5*one_letter_width),
+            #        xmax = this_letter_center + (0.5*one_letter_width),
+            #        color='k', linestyle='--', linewidth = 1, zorder = 3 )
+
+        # the horizontal line for an enrichment of 0
+        #axbg.axhline( y=LFC_0-LFC_height, xmin=0.065, xmax=0.065+0.11*(len(motif)),
+        #        color='k', linestyle='--', linewidth = 1)
+        #axbg.axhline( y=LFC_0+LFC_height, xmin=0.074, xmax=0.065+0.11*(len(motif)),
+        #        color='k', linestyle='--', linewidth = 1)
+        enrich_0 = 0.2
+        enrich_max = 0.8
+        plt.annotate("RBNS $R$", (0.053, (enrich_max+enrich_0)/2. ), fontsize=12,
+                xycoords='figure fraction',
+                verticalalignment = 'center', horizontalalignment = 'right',
+                rotation = 90)
+        # go through and annotate all of the desired ratios
+        for enrich_to_mark in enriches_to_mark_L:
+            enrich_0 = 0.2
+            enrich_max = 0.8
+            height_on_axis = enrich_0 + (enrich_to_mark*one_enrich_unit_height)
+            plt.annotate(str( float(enrich_to_mark) ).rstrip("0").rstrip("."),
+                    (main_H_line_min - 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'right')
+            plt.annotate(str( float(enrich_to_mark) ).rstrip("0").rstrip("."),
+                    (main_H_line_max + 0.01, height_on_axis),
+                    fontsize=12,
+                    xycoords='figure fraction',
+                    verticalalignment = 'center', horizontalalignment = 'left')
+            # also add mini-horizontal lines inside the plot
+            axbg.axhline( y=height_on_axis,
+                    xmin = main_H_line_min,
+                    xmax = main_H_line_min + 0.01,
+                    color='k', linestyle='-', linewidth = 1)
+            axbg.axhline( y=height_on_axis,
+                    xmin = main_H_line_max - 0.01,
+                    xmax = main_H_line_max,
+                    color='k', linestyle='-', linewidth = 1)
+        # make a vertical line at the left and right ends
+        min_v_line = enrich_0
+        max_v_line = enrich_max - 0.002
+        axbg.axvline( x = main_H_line_min,
+                ymin = min_v_line,
+                ymax = max_v_line,
+                color='k', linestyle='-', linewidth = 2)
+        axbg.axvline( x = main_H_line_max,
+                ymin = min_v_line,
+                ymax = max_v_line,
+                color='k', linestyle='-', linewidth = 2)
+        axbg.axhline( y=min_v_line, xmin = main_H_line_min, xmax = main_H_line_max,
+                color='k', linestyle='-', linewidth = 2)
+
+        # annotate the concentrations
+        for pos, conc in enumerate( conc_keys_to_plot_L ):
+            this_letter_center = main_H_line_min +\
+                ((pos+0.5+(num_letters_for_buffer_width)/2.)*one_letter_width)
+            if ( len( conc_keys_to_plot_L ) in [7, 8] ):
+                fontsize = 12
+            elif ( len( conc_keys_to_plot_L ) > 8 ):
+                fontsize = 11
+            else:
+                fontsize= 14
+            plt.annotate( conc.replace( "_", " " ),
+                    (this_letter_center, min_v_line - 0.05), fontsize = fontsize,
+                    xycoords='figure fraction',
+                    verticalalignment = 'top', horizontalalignment = 'center')
+
+        # make a title
+        if ( title != "" ):
+            plt.annotate( title,
+                (middle_of_plot, enrich_max + 0.07),
+                xycoords='figure fraction',
+                fontsize= 16,
+                verticalalignment = 'top', horizontalalignment = 'center')
+
+
+        ##### Plot the significance over all 4 bins
+        if plot_signif:
+            #### pos is the index for the protien concentration
+            for pos, conc in enumerate( conc_keys_to_plot_L ):
+                this_letter_center = main_H_line_min + ((pos+0.5 +\
+                    (num_letters_for_buffer_width)/2.)*one_letter_width)
+                ### The avg. enrichment over all bins
+                avg_enrich_all_bins = enrichments_by_kmer_conc_bin_D[kmer][conc]["overall"]
+
+                abs_delta_last_minus_first = abs( L_of_Ls_to_plot[pos][-1] - L_of_Ls_to_plot[pos][0] )
+                #### Divide this by the overall enrichment so the scales are the same
+                normed_abs_delta_last_minus_first = abs_delta_last_minus_first / avg_enrich_all_bins
+
+                std_this_motif_all_bins = sig_Ds_by_kmer_D[kmer]['0_to_4']['std']
+                if ( normed_abs_delta_last_minus_first >= 2 * std_this_motif_all_bins ):
+
+                    lft_of_conc = this_letter_center - ( 2.3 * in_bar_width )
+                    right_of_conc = this_letter_center + ( 2.3 * in_bar_width )
+
+                    ax_for_lines.axhline( y = min_v_line - 0.03,
+                        xmin = lft_of_conc, xmax = right_of_conc,
+                        color = 'k', linestyle = '-', linewidth = 1 )
+                    ax_for_lines.axvline( x = lft_of_conc, ymin = min_v_line - 0.028, ymax = enrich_0,
+                        color = 'k', linestyle = '-', linewidth = 1 )
+                    ax_for_lines.axvline( x = right_of_conc, ymin = min_v_line - 0.028, ymax = enrich_0,
+                        color = 'k', linestyle = '-', linewidth = 1 )
+                    plt.annotate( "**", ( this_letter_center, min_v_line - 0.045 ), fontsize=12,
+                            xycoords='figure fraction',
+                            verticalalignment = 'center', horizontalalignment = 'center' )
+                    sigB_by_kmer_conc_bin_D[kmer][conc]["0_to_4"] = True
+                else:
+                    sigB_by_kmer_conc_bin_D[kmer][conc]["0_to_4"] = False
+
+        ######### < moved down to here >
+        #### pos is the index for the protien concentration
+        for pos, conc in enumerate( conc_keys_to_plot_L ):
+            enrich_handles_L = 0
+            handles_L = []
+            this_letter_center = main_H_line_min + ((pos+0.5 +\
+                (num_letters_for_buffer_width)/2.)*one_letter_width)
+            ### The avg. enrichment over all bins
+            avg_enrich_all_bins = enrichments_by_kmer_conc_bin_D[kmer][conc]["overall"]
+            #### Go through the 5 bins for this protein concentration
+            for Ppaired_bin_idx, enrich in enumerate( L_of_Ls_to_plot[pos] ):
+
+                lft = this_letter_center + (((-0.5*num_Ppaired_bins)+Ppaired_bin_idx)*in_bar_width)
+                btm = enrich_0
+                wdth = in_bar_width
+                hgh = enrich*one_enrich_unit_height
+                axb = fig2.add_axes([lft, btm, wdth, hgh], zorder = 2 )
+                axb.set_xlim(0, 1.)
+                axb.set_ylim(0, 1.)
+                axb.spines['top'].set_color('none')
+                axb.spines['bottom'].set_color('none')
+                axb.spines['left'].set_color('none')
+                axb.spines['right'].set_color('none')
+                #ax.tick_params(labelcolor="w", top='off',left="off",right="off",\
+                        #        bottom="off")
+                axb.tick_params(which = 'both', top='off',left="off",right="off",\
+                    bottom="off", labelbottom = "off", labeltop = "off",
+                    labelleft = "off", labelright= 'off')
+                color_num_to_use = light_to_dark_D[len(Ppaired_bin_upper_limits_L)][Ppaired_bin_idx]
+                hand = axb.bar(0., 1., width = 1.,
+                        #color = shades_of_red_D[color_num_to_use], edgecolor = 'k')
+                        color = shades_of_red_D[color_num_to_use], edgecolor = 'k')
+                handles_L.append( hand )
+                #### If it's NOT the first bin, see if the SIGNFICANCE should be plotted
+                if ( Ppaired_bin_idx > 0 ) and plot_signif:
+                    prev_bin_enrich = L_of_Ls_to_plot[pos][Ppaired_bin_idx-1]
+                    #### Get the mean between these two bins so the difference can
+                    ####    be normalized (since the 0 nM std. are around 1 )
+                    mean_these_bins = math.sqrt( enrich * prev_bin_enrich )
+                    norm_abs_delta_this_bin_vs_prev = abs( enrich - prev_bin_enrich ) / mean_these_bins
+                    #{0: {'mean': -0.00471339254492531, 'std': 0.035055744570428218},
+                    #       1: {'mean': 0.0025747329424797849, 'std': 0.027230896635803935},
+                    #       2: {'mean': 0.023499924740518468, 'std': 0.037633649955424724},
+                    #       3: {'mean': 0.044438761269242379, 'std': 0.12016792840035895},
+                    #       '0_to_4': {'mean': 0.065800026407315318, 'std': 0.1106762538396405}}
+                    std_this_motif_and_bin = sig_Ds_by_kmer_D[kmer][Ppaired_bin_idx-1]['std']
+                    if ( norm_abs_delta_this_bin_vs_prev >= (2 * std_this_motif_and_bin) ):
+                        #### Make a line
+                        lower_x = lft - (wdth * 0.35)
+                        upper_x = lft + (wdth * 0.35)
+                        ax_for_lines.axhline( y = enrich_0 - 0.005,
+                            xmin = lower_x, xmax = upper_x,
+                            color = 'k', linestyle = '-', linewidth = 1 )
+                        ax_for_lines.axvline( x = lower_x, ymin = enrich_0 - 0.005, ymax = enrich_0,
+                            color = 'k', linestyle = '-', linewidth = 1 )
+                        ax_for_lines.axvline( x = upper_x, ymin = enrich_0 - 0.005, ymax = enrich_0,
+                            color = 'k', linestyle = '-', linewidth = 1 )
+                        plt.annotate( "*", ( lft, enrich_0 - 0.02 ), fontsize=12,
+                                xycoords='figure fraction',
+                                verticalalignment = 'center', horizontalalignment = 'center' )
+                        #### The significance bin should be indexed by the
+                        ####    lower bin idx (so subtract 1)
+                        sigB_by_kmer_conc_bin_D[kmer][conc][Ppaired_bin_idx-1] = True
+                    else:
+                        sigB_by_kmer_conc_bin_D[kmer][conc][Ppaired_bin_idx-1] = False
+
+
+        if (include_legend == True):
+            #### Put the legend on the right if the first concentration has
+            ####    a higher average R than the last concentration
+            if ( avg_Rs_L[0] > avg_Rs_L[-1] ):
+                loc = (axis_x_left + axis_width - 0.21, max_v_line - 0.2)
+            else:
+                loc = (axis_x_left + 0.08, max_v_line - 0.2)
+            leg = axbg.legend( handles_L, labels_to_plot_L,
+                loc = loc,
+                fancybox=True, fontsize=12, borderaxespad=0 )
+            leg.get_frame().set_alpha(0.5)
+
+        fig2.savefig( out_F )
+
+    return_D = { 'sigB_by_kmer_conc_bin_D': sigB_by_kmer_conc_bin_D }
+
+    return return_D
 
 
 
@@ -1487,6 +2414,41 @@ def axis_labels_to_percent(
             return str(y) + r'$\%$'
     else:
         return str(y) + '%'
+
+
+
+
+def merge_4_PDFs_on_1_page(
+        PDFs_L,
+        out_F ):
+    """
+    - Merges 4 PDFs (absolute paths to PDFs in PDFs_L into
+        out_F
+
+        PDF_1   PDF_2
+        PDF_3   PDF_4
+
+    """
+    from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
+    from PyPDF2.generic import RectangleObject
+    from pdfnup import generateNup
+
+    output = PdfFileWriter()
+
+    for F in PDFs_L[:4]:
+        print F
+        input = PdfFileReader( file( F , "rb") )
+        img = input.getPage(0)
+        output.addPage( img )
+
+    outputStream = file( out_F , "wb")
+    output.write(outputStream)
+    outputStream.close()
+
+    generateNup( out_F, 4 )
+
+
+
 
 ################################### </ UTILS > ################################
 ###############################################################################

@@ -9,6 +9,11 @@ It is highly recommended that you use python and other dependencies through a [C
 
 - The simplejson package is also required ('pip install simplejson').
 
+- Note that pdfnup.py script, downloaded as a dependency during the Conda setup, may need to be modified in the following way: My pdfnup.py had the line 'from pyPdf.pdf import PageObject, ImmutableSet, ContentStream', but the ImmutableSet import threw an error; if I changed that line to just 'from pyPdf.pdf import PageObject, ImmutableSet, ContentStream' and then on a separate line added 'from sets import ImmutableSet', everything was OK. Just be sure to test via:
+	python
+	import pyPdf
+and make sure you have no errors
+
 ## Forgi
 
 - Note that the forgi package has its own dependencies, as listed on [the forgi website](https://viennarna.github.io/forgi/download.html). On test installion, this required installing future ('pip install future') and logging_exceptions ('pip install logging_exceptions').

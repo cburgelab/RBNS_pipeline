@@ -90,6 +90,9 @@ class Bnse:
             ####    as flanking sequence
             self.get_Ppaired_over_top_enriched_kmers_and_flanking()
 
+            ##### Plot the Ppaired & Ppaired ratios over each of the top kmers
+            self.plot_Ppaired_over_top_enriched_kmers_and_flanking_and_RbyPpairedBin()
+
 
 
     ###########################################################################
@@ -2710,9 +2713,6 @@ class Bnse:
                 kmers_L.append( RBNS_utils.get_kmer_from_index( k, idx ) )
             kmers_Ls_to_fold_L.append( kmers_L )
 
-        pprint.pprint( kmers_Ls_to_fold_L )
-        #return
-
         for tupl in reads_Fs_annots_tuples_L:
 
             split_reads_F = tupl[0]
@@ -2738,6 +2738,62 @@ class Bnse:
 
         print "\n\nDONE with get_Ppaired_over_top_enriched_kmers_and_flanking() in RBNS_main.py\n\n"
 
+
+
+
+    def plot_Ppaired_over_top_enriched_kmers_and_flanking_and_RbyPpairedBin( self,
+            num_top_kmers_to_analyze = 10 ):
+        """
+        - Using the previously pickled dictionaries from the
+            () function above, makes a plot of the Ppaired ratio over
+            each of the top kmers
+        """
+        read_len = self.settings.get_property( 'read_len' )
+
+        reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+        ks_to_fold_L = self.settings.get_property( 'ks_to_fold' )
+
+        all_folded_w_struc_files_and_annots_T_L = self.return_all_folded_w_struc_files_and_annots_T_L()
+
+        kmers_Ls_to_fold_L = []
+        for k in ks_to_fold_L:
+            kmer_index_L = self.naively_sorted_kmers[k][:num_top_kmers_to_analyze]
+            kmers_L = []
+            for idx in kmer_index_L:
+                kmers_L.append( RBNS_utils.get_kmer_from_index( k, idx ) )
+            kmers_Ls_to_fold_L.append( kmers_L )
+
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            folded_reads_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld_CG_match" )
+            struct_gz_F = os.path.join( folded_reads_DIR,
+                "{0}.w_struc.reads.gz".format(
+                    os.path.basename(split_reads_F).split('.reads')[0] ) )
+            print struct_gz_F
+            if os.path.exists( struct_gz_F ):
+
+                for k in ks_to_fold_L:
+
+                    effective_R_D = self.effective_enrichments_by_k_D[k]
+
+                    ##### Plot the Ppaired & Ppaired ratio at each position
+                    ####    of the top kmers
+                    RBNS_fold_split_reads.plot_RBNS_Ppaired_ratio_w_sig(
+                            all_folded_w_struc_files_and_annots_T_L,
+                            read_len,
+                            k,
+                            effective_R_D )
+
+                    ##### Plot the enrichment by Ppaired bin of the top kmers
+                    RBNS_fold_split_reads.plot_R_by_Ppaired_bin_w_sig(
+                            all_folded_w_struc_files_and_annots_T_L,
+                            read_len,
+                            k,
+                            effective_R_D )
 
     ################################ </ FOLDING > #############################
     ###########################################################################
@@ -2847,6 +2903,68 @@ class Bnse:
         #### Get the annotation of the library with the highest enrichment
         OKed_annots_L = [self.most_enriched_lib_annot_like_20_nM.replace("_", " "), "Input"]
         return [tupl for tupl in reads_Fs_annot_tuples_L if tupl[1] in OKed_annots_L]
+
+
+    def return_all_folded_w_struc_files_and_annots_T_L( self,
+            CG_matched = True ):
+        """
+        - Returns a list like:
+
+        [('/net/nevermind/data/nm/RBNS_results/MBNL1/split_reads/fld_CG_match/MBNL1_input.fld_CG_matchuc.reads.gz',
+            'MBNL1_input',
+            'Input'),
+         ('/net/nevermind/data/nm/RBNS_results/MBNL1/split_reads/fld_CG_match/MBNL1_0.fld_CG_matchuc.reads.gz',
+            'MBNL1_0',
+            ''),
+        ('/net/nevermind/data/nm/RBNS_results/MBNL1/split_reads/fld_CG_match/MBNL1_1.fld_CG_matchuc.reads.gz',
+            'MBNL1_1',
+             ''),
+      ('/net/nevermind/data/nm/RBNS_results/MBNL1/split_reads/fld_CG_match/MBNL1_1090.fld_CG_matchuc.reads.gz',
+           'MBNL1_1090',
+            'Most enriched')]
+        """
+        most_R_reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only()
+        #### ['Input', "1090 nM"]
+        input_and_mostR_annots_L = [tupl[1] for tupl in most_R_reads_Fs_annots_tuples_L]
+
+        all_reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L_with_input_first()
+
+        #### A tuple that has the [(F, "MBNL_121", "Most enriched")]
+        readswstruct_startingbasename_myannot_L = []
+
+        for tupl in all_reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            start_basename = os.path.basename( split_reads_F ).split(".reads")[0]
+
+            if CG_matched:
+                w_struc_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                            "fld_CG_match" )
+            else:
+                w_struc_DIR = os.path.join( os.path.dirname( split_reads_F ), "fld" )
+
+            w_struct_F = os.path.join( w_struc_DIR,
+                            "{}.w_struc.reads.gz".format( start_basename ) )
+
+            myannot = ""
+            if ( annot == "Input" ):
+                myannot = "Input"
+                start_basename = "{0}_input".format(
+                        self.settings.get_property( "protein_name" ) )
+                w_struct_F = os.path.join( w_struc_DIR,
+                    "{}.w_struc.reads.gz".format( start_basename ) )
+            elif ( annot in input_and_mostR_annots_L ):
+                myannot = "Most enriched"
+
+            if os.path.exists( w_struct_F ):
+                readswstruct_startingbasename_myannot_L.append(
+                    ( w_struct_F, start_basename, myannot ) )
+
+        self.readswstruct_startingbasename_myannot_L =\
+            readswstruct_startingbasename_myannot_L
+        return readswstruct_startingbasename_myannot_L
 
 
 

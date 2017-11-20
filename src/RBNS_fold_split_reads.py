@@ -504,6 +504,376 @@ def calc_Ppaired_over_top_enriched_kmers_and_flanking(
 
 
 
+
+
+def plot_RBNS_Ppaired_ratio_w_sig(
+        readswstruct_startingbasename_myannot_L,
+        read_len,
+        k,
+        effective_R_D,
+        kmers_to_do = "top_10" ):
+    """
+    - Makes a plot of the Ppaired ratios for the desired set of kmers
+
+    - fld_CG_match_DIR is the directory that contains the Ppaired_Ds directory:
+        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/RBFOX3_test/split_reads/fld_CG_match
+
+    """
+    import random
+    import RBNS_plots
+
+    assert( kmers_to_do in ["top_10"] )
+
+    fld_CG_match_DIR = os.path.dirname( readswstruct_startingbasename_myannot_L[0][0] )
+    RBP = readswstruct_startingbasename_myannot_L[0][1].split('_')[0]
+
+    #### Get the list of all kmers, which to motif_num matches
+    all_kmers_L = RBNS_utils.return_all_kmers_L( k )
+    kmer_to_motifidx_D = {}
+    motifidx_to_kmer_D = {}
+    for idx, kmer in enumerate( all_kmers_L ):
+        kmer_to_motifidx_D[kmer] = idx
+        motifidx_to_kmer_D[idx] = kmer
+
+    out_DIR = fld_CG_match_DIR.split("/split_reads")[0]
+    os.system( "mkdir -p {}".format( out_DIR ) )
+
+    out_DIR_this_RBP_k = os.path.join( out_DIR, "{0}mer_plots".format( k ) )
+
+    out_Ds_DIR = os.path.join( out_DIR_this_RBP_k, 'Ds' )
+    os.system( "mkdir -p {}".format( out_Ds_DIR ) )
+
+    tables_DIR = os.path.join( out_DIR_this_RBP_k, 'tables' )
+    os.system( "mkdir -p {}".format( tables_DIR ) )
+
+    out_F_start = os.path.join( out_DIR_this_RBP_k, RBP )
+
+    #### Get the most enriched concentration
+    most_enriched_conc_str = ""
+    for T in readswstruct_startingbasename_myannot_L:
+        if ( T[2] == 'Most enriched' ):
+            most_enriched_conc_str = "{0} nM".format( T[1].split("_")[-1] )
+
+    Ds_DIR = os.path.join( fld_CG_match_DIR, "Ppaired_Ds/{0}".format( k ) )
+
+    most_enriched_lib_annotation = ""
+    #### annots_L will be like:
+    ####    ['input', '5_nM', '20_nM', '80_nM', '320_nM', '1300_nM']
+    annots_L = []
+    ####    D_by_annot_D will have keys like 'input', '5_nM', etc. and values:
+    ## {'AAAAAA': {-10: {'Ppaired_sum': 2.061,
+    ##                    'counts': 4},
+    ##              -9: {'Ppaired_sum': 1.027,
+    ##                    'counts': 5},
+    D_by_annot_D = {}
+    for reads_w_struct_F, starting_basename, my_annot in\
+        readswstruct_startingbasename_myannot_L:
+
+        if ( my_annot == "Input" ):
+            lib_annot = 'input'
+        else:
+            lib_annot = starting_basename.split("_")[-1] + "_nM"
+        if ( my_annot == "Most enriched" ):
+            most_enriched_lib_annotation = lib_annot
+
+        annots_L.append( lib_annot )
+
+        D_F = os.path.join( Ds_DIR, "{0}.D.pkl".format( starting_basename ) )
+        D_by_annot_D[lib_annot] = pickle.load( open( D_F ) )['Ppair_and_count_by_kmer_idx_D']
+
+    #### Get the desired kmers (e.g., the top 5 )
+    if ( kmers_to_do == "top_10" ):
+        kmer_R_T_L = [(kmer, effective_R_D[kmer]) for kmer in effective_R_D]
+        kmer_R_T_L.sort( key = lambda x: -1 * x[1] )
+        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:1000]]
+
+    #top_kmers_L = RBNS_exp.return_top_X_kmers( k, int( 4 ** k ) )
+    for kmer_idx, kmer_to_plot in enumerate( top_kmers_L ):
+
+        R = effective_R_D[kmer_to_plot]
+        title = r"{0}, {1} (\#{2}: $R={3:.2f}$)".format(
+                RBP, kmer_to_plot.replace("T","U"),
+                kmer_idx + 1, R )
+        print title
+
+        ##### Make an output .txt table of the Ppaireds of this motif and
+        ####    the Ppaired ratio for the upstream & downstream flanking
+        ####    positions
+        out_txt_F = os.path.join( tables_DIR,
+                "{0}.{1}.Ppaired_w_flanking_ratios.txt".format(
+                    RBP, kmer_to_plot.replace("T","U") ) )
+        out_txt_f = open( out_txt_F, 'w' )
+        out_txt_f.write( "{0} {1} Ppaired, {2}mer plus 10 flanking".format(
+            RBP, kmer_to_plot.replace("T","U"), k ) )
+        for idx in range( -10, 10 + k ):
+            out_txt_f.write( "\t{}".format( idx ) )
+
+        Ppaired_L_by_libannot_D = {}
+        to_plot_avg_fold_probs_by_motif_and_pos_D = {}
+        for lib_annot, D in D_by_annot_D.iteritems():
+
+            to_plot_avg_fold_probs_by_motif_and_pos_D[lib_annot] = {}
+            Ppaired_L_by_libannot_D[lib_annot] = []
+            #### The original motif_num of this kmer
+            motif_num = kmer_to_motifidx_D[kmer_to_plot]
+
+            #### Since we're only plotting one motif, give it index 0
+            to_plot_avg_fold_probs_by_motif_and_pos_D[lib_annot][0] = []
+            Ppaired_D = D[kmer_to_plot]
+            #pprint.pprint( Ppaired_D )
+            for idx in range( k ):
+                Ppaired = Ppaired_D[idx]['Ppaired_sum'] / Ppaired_D[idx]['counts']
+                to_plot_avg_fold_probs_by_motif_and_pos_D[lib_annot][0].append( Ppaired )
+                Ppaired_L_by_libannot_D[lib_annot].append( Ppaired )
+
+            ##### Go through the 10 flanking upstream & downstream positions
+            out_txt_f.write( "\n{}".format( lib_annot ) )
+            for idx in range( -10, 10 + k ):
+                Ppaired = Ppaired_D[idx]['Ppaired_sum'] / Ppaired_D[idx]['counts']
+                out_txt_f.write( "\t{0:.3f}".format( Ppaired ) )
+
+        print "\nSaving to: {}".format( out_F_start )
+        returned_D = RBNS_plots.plot_Ppaired_ratio_of_motif(
+                to_plot_avg_fold_probs_by_motif_and_pos_D,
+                annots_L,
+                [kmer_to_plot],
+                most_enriched_lib_annotation,
+                out_F_start,
+                read_len,
+                title = title,
+                #plot_signif = True,
+                plot_signif = False,
+                #skip_if_already_exists = True )
+                skip_if_already_exists = False )
+        ratios_by_motif_pos_D = returned_D['ratios_by_motif_pos_D']
+
+        out_ratio_D_F = os.path.join( out_Ds_DIR,
+                "{}.ratios_by_pos_D.pkl".format( kmer_to_plot ) )
+        try:
+            D = ratios_by_motif_pos_D[kmer_to_plot]
+            RBNS_utils.pkl_with_formatfile(
+                    D,
+                    out_ratio_D_F,
+                    num_to_include_in_format = "all" )
+        except KeyError:
+            pass
+
+        out_D_F = os.path.join( out_Ds_DIR,
+                "{}.Ppaired_L_by_libannot_D.pkl".format( kmer_to_plot ) )
+        RBNS_utils.pkl_with_formatfile(
+                Ppaired_L_by_libannot_D,
+                out_D_F,
+                num_to_include_in_format = "all" )
+
+        if ( 'sigB_by_motif_pos_D' in returned_D ):
+            sigB_by_motif_pos_D = returned_D['sigB_by_motif_pos_D']
+            out_sigB_D_F = os.path.join( out_Ds_DIR,
+                    "{}.sigB_by_pos_D.pkl".format( kmer_to_plot ) )
+            try:
+                D = sigB_by_motif_pos_D[kmer_to_plot]
+                RBNS_utils.pkl_with_formatfile(
+                        D,
+                        out_sigB_D_F,
+                        num_to_include_in_format = "all" )
+            except KeyError:
+                pass
+
+        out_txt_f.close()
+
+
+
+
+def plot_R_by_Ppaired_bin_w_sig(
+        readswstruct_startingbasename_myannot_L,
+        read_len,
+        k,
+        effective_R_D,
+        kmers_to_do = "top_10" ):
+    """
+    - Makes a plot of the Ppaired ratios for the desired set of kmers
+
+    - fld_CG_match_DIR is the directory that contains the Ppaired_Ds directory:
+        /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/RBFOX3_test/split_reads/fld_CG_match
+
+    """
+    import random
+    import RBNS_plots
+
+
+    assert( kmers_to_do in ["top_10"] )
+
+    fld_CG_match_DIR = os.path.dirname( readswstruct_startingbasename_myannot_L[0][0] )
+    RBP = readswstruct_startingbasename_myannot_L[0][1].split('_')[0]
+
+    #### Get the list of all kmers, which to motif_num matches
+    all_kmers_L = RBNS_utils.return_all_kmers_L( k )
+    kmer_to_motifidx_D = {}
+    motifidx_to_kmer_D = {}
+    for idx, kmer in enumerate( all_kmers_L ):
+        kmer_to_motifidx_D[kmer] = idx
+        motifidx_to_kmer_D[idx] = kmer
+
+    out_DIR = fld_CG_match_DIR.split("/split_reads")[0]
+    os.system( "mkdir -p {}".format( out_DIR ) )
+
+    out_DIR_this_RBP_k = os.path.join( out_DIR, "{0}mer_plots".format( k ) )
+
+    out_Ds_DIR = os.path.join( out_DIR_this_RBP_k, 'Ds' )
+    os.system( "mkdir -p {}".format( out_Ds_DIR ) )
+
+    tables_DIR = os.path.join( out_DIR_this_RBP_k, 'tables' )
+    os.system( "mkdir -p {}".format( tables_DIR ) )
+
+    out_F_start = os.path.join( out_DIR_this_RBP_k, RBP )
+
+    #### Get the most enriched concentration
+    most_enriched_conc_str = ""
+    for T in readswstruct_startingbasename_myannot_L:
+        if ( T[2] == 'Most enriched' ):
+            most_enriched_conc_str = "{0} nM".format( T[1].split("_")[-1] )
+
+    Ds_DIR = os.path.join( fld_CG_match_DIR, "Ppaired_Ds/{0}".format( k ) )
+
+    most_enriched_lib_annotation = ""
+    #### annots_L will be like:
+    ####    ['input', '5_nM', '20_nM', '80_nM', '320_nM', '1300_nM']
+    annots_L = []
+    ####    D_by_annot_D will have keys like 'input', '5_nM', etc. and values:
+    ## {'AAAAAA': {-10: {'Ppaired_sum': 2.061,
+    ##                    'counts': 4},
+    ##              -9: {'Ppaired_sum': 1.027,
+    ##                    'counts': 5},
+    D_by_annot_D = {}
+    for reads_w_struct_F, starting_basename, my_annot in\
+        readswstruct_startingbasename_myannot_L:
+
+        if ( my_annot == "Input" ):
+            lib_annot = 'input'
+        else:
+            lib_annot = starting_basename.split("_")[-1] + "_nM"
+        if ( my_annot == "Most enriched" ):
+            most_enriched_lib_annotation = lib_annot
+
+        annots_L.append( lib_annot )
+
+        D_F = os.path.join( Ds_DIR, "{0}.D.pkl".format( starting_basename ) )
+        D_by_annot_D[lib_annot] = pickle.load( open( D_F ) )['counts_by_kmer_binidx_D']
+
+    #### Get the desired kmers (e.g., the top 5 )
+    if ( kmers_to_do == "top_10" ):
+        kmer_R_T_L = [(kmer, effective_R_D[kmer]) for kmer in effective_R_D]
+        kmer_R_T_L.sort( key = lambda x: -1 * x[1] )
+        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:1000]]
+
+    #top_kmers_L = RBNS_exp.return_top_X_kmers( k, int( 4 ** k ) )
+    for kmer_idx, kmer_to_plot in enumerate( top_kmers_L ):
+
+        R = effective_R_D[kmer_to_plot]
+        title = r"{0}, {1} (\#{2}: $R={3:.2f}$)".format(
+                RBP, kmer_to_plot.replace("T","U"),
+                kmer_idx + 1, R )
+        print title
+
+        ##### Make an output .txt table of the Ppaireds of this motif and
+        ####    the Ppaired ratio for the upstream & downstream flanking
+        ####    positions
+        out_txt_F = os.path.join( tables_DIR,
+                "{0}.{1}.R_by_Ppaired_bin.txt".format(
+                    RBP, kmer_to_plot.replace("T","U") ) )
+        out_txt_f = open( out_txt_F, 'w' )
+        out_txt_f.write( "{0} {1} R by Ppaired bin".format(
+            RBP, kmer_to_plot.replace("T","U") ) )
+        out_txt_f.write( "\t0-0.2\t0.2-0.4\t0.4-0.6\t0.6-0.8\t0.8-1.0" )
+
+        ##### First get the INPUT frequency in each of the 5 Ppaired bins
+        input_D = D_by_annot_D['input']
+        input_freq_by_bin_D = {}
+        input_kmer_counts_all_bins = 0.
+        input_all_counts_all_bins = 0.
+        for bin_idx in range( 5 ):
+            total_counts_this_bin = sum( [input_D[all_kmer][bin_idx] for all_kmer in input_D] )
+            kmer_counts_this_bin = input_D[kmer_to_plot][bin_idx]
+            kmer_freq = float( kmer_counts_this_bin ) / total_counts_this_bin
+            input_freq_by_bin_D[bin_idx] = kmer_freq
+            input_kmer_counts_all_bins += kmer_counts_this_bin
+            input_all_counts_all_bins += total_counts_this_bin
+
+        enrichments_by_kmer_conc_bin_D = {kmer_to_plot: {}}
+        for lib_annot, D in D_by_annot_D.iteritems():
+
+            if ( lib_annot == 'input' ):
+                continue
+
+            kmer_counts_all_bins = 0.
+            all_counts_all_bins = 0.
+
+            enrichments_by_kmer_conc_bin_D[kmer_to_plot][lib_annot] = {}
+            #### The original motif_num of this kmer
+            motif_num = kmer_to_motifidx_D[kmer_to_plot]
+
+            this_D = D_by_annot_D[lib_annot]
+
+            out_txt_f.write( "\n{}".format( lib_annot ) )
+            for bin_idx in range( 5 ):
+                total_counts_this_bin = sum( [this_D[all_kmer][bin_idx] for all_kmer in this_D] )
+                kmer_counts_this_bin = this_D[kmer_to_plot][bin_idx]
+                kmer_freq = float( kmer_counts_this_bin ) / total_counts_this_bin
+                kmer_counts_all_bins += kmer_counts_this_bin
+                all_counts_all_bins += total_counts_this_bin
+
+                try:
+                    kmer_R = kmer_freq / input_freq_by_bin_D[bin_idx]
+                except ZeroDivisionError:
+                    kmer_R = 1.
+                out_txt_f.write( "\t{0:.3f}".format( kmer_R ) )
+
+                enrichments_by_kmer_conc_bin_D[kmer_to_plot][lib_annot][bin_idx] = kmer_R
+
+            ##### Get the OVERALL (over all bins) R
+            overall_R = (kmer_counts_all_bins/all_counts_all_bins) / (input_kmer_counts_all_bins/input_all_counts_all_bins)
+            enrichments_by_kmer_conc_bin_D[kmer_to_plot][lib_annot]['overall'] = kmer_R
+
+
+        print "\nSaving to: {}".format( out_F_start )
+        Ppaired_upper_bins_L = [0.2, 0.4, 0.6, 0.8, 1.]
+        returned_D = RBNS_plots.plot_enrichment_by_5_Ppaired_bins(
+                enrichments_by_kmer_conc_bin_D,
+                annots_L,
+                [kmer_to_plot],
+                Ppaired_upper_bins_L,
+                out_F_start,
+                read_len,
+                title = title,
+                #plot_signif = True,
+                plot_signif = False )
+        sigB_by_kmer_conc_bin_D = returned_D['sigB_by_kmer_conc_bin_D']
+
+        out_ratio_D_F = os.path.join( out_Ds_DIR,
+                "{}.sigB_by_kmer_conc_bin_D.pkl".format( kmer_to_plot ) )
+        try:
+            D = sigB_by_kmer_conc_bin_D[kmer_to_plot]
+            RBNS_utils.pkl_with_formatfile(
+                    D,
+                    out_ratio_D_F,
+                    num_to_include_in_format = "all" )
+        except KeyError:
+            pass
+
+        out_D_F = os.path.join( out_Ds_DIR,
+                "{}.enrichments_by_conc_bin_D.pkl".format( kmer_to_plot ) )
+        RBNS_utils.pkl_with_formatfile(
+                enrichments_by_kmer_conc_bin_D[kmer_to_plot],
+                out_D_F,
+                num_to_include_in_format = "all" )
+
+        out_txt_f.close()
+
+
+
+
+
+
+
 ###############################################################################
 #################################### < UTILS > ################################
 
