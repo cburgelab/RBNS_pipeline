@@ -25,7 +25,7 @@ ks_to_test_naive_max_once = []
 ks_to_test_logos = []
 Z_scores_for_logos = []
 
-fold_each_reads_F = True
+fold_each_reads_F = False
 
 force_naive_recount = False
 force_stream_recount = False
@@ -35,7 +35,7 @@ force_redo_logos = False
 make_unique_reads_F = False
 
 [ output ]
-results_dir = /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/RBFOX3_test
-scratch_dir = /nobackup1/pfreese/RBFOX3_test
+results_dir = /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/RBFOX3_test_cluster
+scratch_dir = /nobackup1/pfreese/RBFOX3_test_cluster
 
 

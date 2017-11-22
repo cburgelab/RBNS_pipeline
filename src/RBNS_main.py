@@ -84,7 +84,11 @@ class Bnse:
             ##### Get sampled suboptimal DotBracket secondary structures
             #####   for each RNA (default: 20 structures sampled from the
             #####   ensemble)
-            self.get_subopt_sampled_DotBracket_structures_for_each_lib()
+            #self.get_subopt_sampled_DotBracket_structures_for_each_lib()
+            self.get_subopt_each_reads_by_block_F()
+            #### Combine the folded subopt DotBrack files in blocks of
+            ####    ~1,000,000 reads into one file per library
+            self.combine_all_subopt_block_Fs_into_one_file()
 
             ##### Calculated the Ppaired over the top enriched kmers as well
             ####    as flanking sequence
@@ -497,21 +501,25 @@ class Bnse:
 
 
 
-    def wait_for_jobs_to_complete( self, sleep = 30 ):
+    def wait_for_jobs_to_complete( self, sleep = 7 ):
         """
          - Waits for the counts jobs to be completed on the qsub.
         """
         while True:
-            outputs = [subprocess.Popen('qstat %i' % job_id,
-              shell=True, stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE).communicate()
+            outputs = [subprocess.Popen('squeue -j %i' % job_id,
+                shell = True,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE ).communicate()
               for job_id in self.waiting_jobs]
-            completed = map(lambda output: 'Unknown Job' in output[1], outputs)
+            #print outputs
+            completed = map( lambda output: len(output[0].split('\n')) == 2, outputs )
+            #print completed
+            #print "\n\n"
             if all(completed):
                 break
             else:
                 jobs_left = sum(map(lambda output:
-                  0 if 'Unknown J' in output[1] else 1, outputs))
+                  0 if len(output[0].split('\n')) == 2 else 1, outputs))
                 print jobs_left, 'jobs left', [
                   job for job, job_complete in zip(self.waiting_jobs, completed) if not job_complete]
             time.sleep(sleep)
@@ -2517,6 +2525,7 @@ class Bnse:
         print "\n\nFINISHED with make_all_w_str_CG_matched_Fs() in RBNS_main.py\n\n"
 
 
+
     def combine_all_block_Fs_into_one_file( self,
             num_reads_per_block = 1000000,
             max_num_input_blocks = 5,
@@ -2684,11 +2693,207 @@ class Bnse:
                     os.path.basename(split_reads_F).split('.reads')[0] ) )
             print struct_gz_F
             if os.path.exists( struct_gz_F ):
-                RBNS_fold_split_reads.get_suboptimal_sampled_DotBracket_reads_F(
-                    struct_gz_F,
-                    self.settings.get_property('temp'),
-                    self.settings.get_property('scratch_dir') )
+                if self.counts_on_cluster:
+                    RBNS_fold_split_reads.submit_get_suboptimal_sampled_DotBracket_reads_F(
+                            struct_gz_F,
+                            self.settings.get_property('temp'),
+                            self.settings.get_property('scratch_dir') )
+                else:
+                    RBNS_fold_split_reads.get_suboptimal_sampled_DotBracket_reads_F(
+                        struct_gz_F,
+                        self.settings.get_property('temp'),
+                        self.settings.get_property('scratch_dir') )
         print "\n\nDONE with get_subopt_sampled_DotBracket_structures_for_each_lib() in RBNS_main.py\n\n"
+
+
+    def get_subopt_each_reads_by_block_F( self,
+            num_reads_per_block = 1000000,
+            max_num_input_blocks = 5,
+            max_num_PD_blocks = 12,
+            num_max_jobs_at_one_time = 16,
+            all_or_mostenrichedconc_only = "all" ):
+        """
+        - Folds either:
+            1. the Input & Most Enriched conc. reads ONLY (if
+                    all_or_mostenrichedconc_only = "all" ), or
+            2. ALL concentrations
+            by blocks of 1,000,000 reads (by default, this can be changed in
+                RBNS_fold_split_reads.py)
+
+        - Output:
+            - Each 'block' has an out_F like:
+                /net/utr/data/atf/pfreese/RBNS_results/igf2bp1/split_reads/w_struc/by_block/
+                    IGF2BP1_input.block_0.w_struc.reads.gz OR
+                    IGF2BP1_320.block_0.w_struc.reads.gz
+        """
+        print "\n\nEXECUTING get_subopt_each_reads_by_block_F() in RBNS_main.py\n\n"
+
+        assert( all_or_mostenrichedconc_only in ["all", "most_enriched_only"] )
+
+        if ( all_or_mostenrichedconc_only == "all" ):
+            reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L()
+        elif ( all_or_mostenrichedconc_only == "most_enriched_only" ):
+            reads_Fs_annots_tuples_L =\
+                self.return_reads_F_annot_tuples_L_with_input_and_mostR_pulldown_only()
+
+        splitreadsF_blockidx_T_L = []
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            flded_gz_F = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld_CG_match/{0}.w_struc.reads.gz".format(
+                        os.path.basename( split_reads_F ).split(".")[0] ) )
+            if not os.path.exists( flded_gz_F ):
+                continue
+            num_reads_this_F = RBNS_utils.return_num_lines_in_F( flded_gz_F ) / 4
+            print "\t{0:,} reads in {1}".format(
+                    num_reads_this_F, flded_gz_F )
+            num_total_blocks = int( float( num_reads_this_F ) / num_reads_per_block ) + 1
+
+            out_block_DIR = os.path.join( os.path.dirname( split_reads_F ),
+                    "fld_CG_match/subopt_DB_20reads/by_block" )
+            RBNS_utils.make_dir( out_block_DIR )
+
+            if ( annot == "Input" ):
+                max_num_blocks = min( max_num_input_blocks, num_total_blocks )
+            else:
+                max_num_blocks = min( max_num_PD_blocks, num_total_blocks )
+
+            ##### Go through each of the blocks
+            for block_idx in range( max_num_blocks ):
+
+                start_basename = os.path.basename( split_reads_F ).split(".reads")[0] +\
+                        ".w_struc.block_{}".format( block_idx )
+                out_reads_F = os.path.join( out_block_DIR,
+                        "{}.subopt_DB.gz".format( start_basename ) )
+                making_F = out_reads_F + ".making"
+                if ( os.path.exists( out_reads_F ) or os.path.exists( making_F ) ):
+                    continue
+                with open( making_F, "w" ) as f:
+                    pass
+
+                splitreadsF_blockidx_T_L.append( ( flded_gz_F, block_idx ) )
+
+        ##### Now split up the splitreadsF_blockidx_T_L so it returns lists of the
+        #####   proper length
+        splitreadsF_blockidx_T_Ls_L = RBNS_utils.split_splitreadsF_blockidx_T_L_into_lists_max_X(
+                splitreadsF_blockidx_T_L,
+                num_max_jobs_at_one_time )
+
+        for splitreadsF_blockidx_T_L_THISRUN in splitreadsF_blockidx_T_Ls_L:
+
+            jobs_L = []
+            for T in splitreadsF_blockidx_T_L_THISRUN:
+
+                gz_F, block_idx = T
+                print gz_F
+
+                if self.counts_on_cluster:
+                    RBNS_fold_split_reads.submit_get_suboptimal_block_sampled_DotBracket_reads_F(
+                            gz_F,
+                            self.settings.get_property('temp'),
+                            self.settings.get_property('scratch_dir'),
+                            block_idx )
+                else:
+                    p = multiprocessing.Process(
+                            target = RBNS_fold_split_reads.get_suboptimal_block_sampled_DotBracket_reads_F,
+                            args = (
+                                gz_F,
+                                self.settings.get_property('temp'),
+                                self.settings.get_property('scratch_dir'),
+                                block_idx ) )
+                    jobs_L.append( p )
+
+            #### Start each of the jobs and wait for them to finish
+            [t.start() for t in jobs_L]
+            [t.join() for t in jobs_L]
+
+        print "\n\nFINISHED with get_subopt_each_reads_by_block_F() in RBNS_main.py\n\n"
+
+
+
+    def combine_all_subopt_block_Fs_into_one_file( self,
+            num_reads_per_block = 1000000,
+            max_num_input_blocks = 5,
+            max_num_PD_blocks = 12,
+            combine_Fs_if_all_blocks_exist = True,
+            also_get_num_reads_of_completed_Fs = True ):
+        """
+        - Given that reads have been folded in separate 'block' files, each of
+            which have num_reads_per_block, combines all of the individual
+            block files into one file
+        """
+        print "\n\nEXECUTING combine_all_subopt_block_Fs_into_one_file() in RBNS_main.py\n\n"
+
+        #### Get the barcode log
+        barcode_log_F = os.path.join( self.settings.rdir,
+            'split_reads', '{}_barcode_log.txt'.format(
+                self.settings.get_property( "protein_name" ) ) )
+        assert( os.path.exists( barcode_log_F ) )
+        #### Get the number of reads in each
+        ####    {'5 nM': 26787411,
+        ####        ....
+        ####     'Input': 11921053
+        num_reads_by_concannot_D = file_IO.get_num_reads_by_barcode_and_conc_D(
+                barcode_log_F )['conc_to_numreads_D']
+        pprint.pprint( num_reads_by_concannot_D )
+
+        reads_Fs_annots_tuples_L = self.return_reads_F_annot_tuples_L_with_input_first()
+        pprint.pprint( reads_Fs_annots_tuples_L )
+
+        for tupl in reads_Fs_annots_tuples_L:
+
+            split_reads_F = tupl[0]
+            annot = tupl[1]
+
+            print "\n\n{0} ({1})".format( split_reads_F, annot )
+
+            start_basename_wo_block = os.path.basename( split_reads_F ).split(".reads")[0]
+
+            w_struc_DIR = os.path.join( os.path.dirname( split_reads_F ), "fld_CG_match" )
+            orig_gz_F = os.path.join( w_struc_DIR, "{}.w_struc.reads.gz".format(
+                start_basename_wo_block ) )
+            if not os.path.exists( orig_gz_F ):
+                continue
+
+
+            subopt_DIR = os.path.join( w_struc_DIR, "subopt_DB_20reads" )
+            out_block_DIR = os.path.join( subopt_DIR, "by_block" )
+            final_out_F = os.path.join( subopt_DIR,
+                    "{0}.w_struc.subopt_DB.gz".format(
+                        start_basename_wo_block ) )
+            if os.path.exists( final_out_F ):
+                continue
+
+            print "\n", orig_gz_F
+
+            num_lines_orig_gz_F = RBNS_utils.return_num_lines_in_F( orig_gz_F )
+
+            ##### Get all of the block files for this library
+            block_files_this_lib_L = glob.glob( os.path.join( out_block_DIR,
+                "{0}*block*.subopt_DB.gz".format( start_basename_wo_block ) ) )
+            num_total_lines_this_lib = 0
+            for F in block_files_this_lib_L:
+                num_total_lines_this_lib += RBNS_utils.return_num_lines_in_F( F )
+
+            print "orig file: {0:,} lines".format( num_lines_orig_gz_F )
+            print "subopt file: {0:,} lines".format( num_total_lines_this_lib )
+
+            ##### If they're EQUAL (i.e., all have finished), combine the files
+            if ( ( num_lines_orig_gz_F / 4 ) == ( num_total_lines_this_lib / 21 ) ):
+                cat_cmd = "cat "
+                cat_cmd += " ".join( block_files_this_lib_L )
+                cat_cmd += " > {0}".format( final_out_F )
+                print "\n\nMAKING\n\t{0}\nfrom its constitent {1} block files which ALL exist\n\n".format(
+                        final_out_F, len( block_files_this_lib_L ) )
+                print cat_cmd
+                os.system( cat_cmd )
+
+        print "\n\nFINISHED with combine_all_subopt_block_Fs_into_one_file() in RBNS_main.py\n\n"
+
+
 
 
 

@@ -21,11 +21,11 @@ import RBNS_utils
 
 
 #### If there's an installation of LaTeX on you path (e.g., .../texlive/2013/bin/x86_64-linux)
-try:
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-except:
-    pass
+#try:
+#    plt.rc( 'text', usetex = True )
+#    plt.rc( 'font', family = 'serif' )
+#except:
+#    pass
 
 light_to_dark_D = {1: [5],
                    2: [7, 3],
@@ -1486,7 +1486,7 @@ def plot_Ppaired_ratio_of_motif(
         out_abs_F = out_F_start + "_Ppairedanalysis_abs.{0}.abs.pdf".format( motif )
         out_merged_F = out_F_start + "_Ppaired_analysis.{0}.pdf".format( motif )
         two_up_merged_F = out_F_start + "_Ppaired_analysis.{0}-2up.pdf".format( motif )
-        if os.path.exists( out_merged_F ) and ( os.stat( out_merged_F ).st_size > 2000 ) and\
+        if os.path.exists( out_merged_F ) and\
                 skip_if_already_exists:
             continue
 

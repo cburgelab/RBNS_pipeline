@@ -245,6 +245,8 @@ class RBNS_motifs:
         ## </ Files that will contain the kmers aligned to make the logos > ###
         #######################################################################
 
+        os.system( "rm -rf {}".format( self.temp_DIR ) )
+
 
 
 
@@ -1233,32 +1235,39 @@ def main():
                 config_f.close()
 
                 ################# < RUN EXECUTE_GET_LOGOS > ###################
-                if (args.launch_onto_cluster == False):
+                if ( args.launch_onto_cluster == False ):
                     execute_get_logos(
                         this_config_F )
                 else:
                     error_output_DIR = os.path.join( config_with_args_DIR,
-                            basename + "/errors_outputs" )
+                            basename, "errors_outputs" )
                     if not os.path.exists( error_output_DIR ):
                         os.makedirs( error_output_DIR )
-                    output_F = os.path.join( error_output_DIR, "output.txt" )
-                    error_F = os.path.join( error_output_DIR, "error.txt" )
-                    cmd = 'hostname ; python {0} {1} --num-reads {2} --starting-k {3} --ending-k {4} --Zscore-kmers-to-keep {5} 1> {6} 2> {7}'.format(
-                            os.path.abspath(sys.argv[0]),
+                    #output_F = os.path.join( error_output_DIR, "output.txt" )
+                    #error_F = os.path.join( error_output_DIR, "error.txt" )
+                    #cmd = 'python {0} {1} --num-reads {2} --starting-k {3} --ending-k {4} --Zscore-kmers-to-keep {5} 1> {6} 2> {7}'.format(
+                    #        os.path.abspath( sys.argv[0] ),
+                    #        args.config_F,
+                    #        args.num_reads[0],
+                    #        starting_k,
+                    #        ending_k,
+                    #        Zscore_kmers_to_keep,
+                    #        output_F,
+                    #        error_F )
+                    cmd = 'python {0} {1} --num-reads {2} --starting-k {3} --ending-k {4} --Zscore-kmers-to-keep {5}'.format(
+                            os.path.abspath( sys.argv[0] ),
                             args.config_F,
                             args.num_reads[0],
                             starting_k,
                             ending_k,
-                            Zscore_kmers_to_keep,
-                            output_F,
-                            error_F )
+                            Zscore_kmers_to_keep )
+                    print cmd
 
                     launch(
                         cmd,
                         jobname = basename,
-                        ppn = '1',
-                        q = 'long',
-                        error_dir = error_output_DIR )
+                        time_mins = 690,
+                        error_DIR = error_output_DIR )
 
                 ################# < RUN EXECUTE_GET_LOGOS > ###################
 

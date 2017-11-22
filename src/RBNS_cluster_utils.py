@@ -2,28 +2,35 @@
 import os, sys, pprint
 import subprocess
 
+import RBNS_main
 import RBNS_utils
 
 
-#### NOTE: these functions were written for a TORQUE / PBS scheduling manager
-####    (e.g., submitting jobs to a queue through qsub)
+#### NOTE: these functions were written for a SLURM scheduling manager,
+####    with the "#SBATCH -C centos7" argument being specific to the
+####    cluster on which this pipeline was developed. You may need to
+####    modify the launch() function below so it is compatible with your
+####    cluster
 
-####    - Compatability with SLURM workload manager may be forthcoming
+####    NOTE: compatibility with a PBS/Torque scheduler is provided in
+####        the RBNS_cluster_utils.PBS.py file
 
 
 
 def launch(
         command,
         script_options = False,
-        q = 'short',
+        q = 'sched_mit_hill',
         jobname = 'ajob',
         out_file = '',
         error_DIR = '~',
         username = 'pfreese',
-        ppn = '1',
+        time_mins = 'default',
         mem = '1gb' ):
     """
     - Launches the command on the cluster using the given script options
+    %(command)s 1> %(output_F)s 2> %(error_F)s
+    call = "sbatch -o %(output_F)s -e %(error_F)s -p %(partition)s -J %(jobname)s -N %(nodes)s $(command)" % script_options
     """
     error_F = os.path.join( error_DIR, "{}.error".format( jobname ) )
     output_F = os.path.join( error_DIR, "{}.out".format( jobname ) )
@@ -31,28 +38,36 @@ def launch(
     print 'will launch: '
     print command
     if not script_options:
-        script_options = {'nodes': '1', 'ppn': str(ppn),
-          'jobname': jobname,
-          'queue': q, 'workingdir': os.getcwd()}
-    script_options['error_DIR'] = "wiley:" + os.path.expanduser(error_DIR)
+        script_options = {
+                'nodes': '1',
+                'jobname': jobname,
+                'partition': q,
+                'workingdir': os.getcwd() }
+    script_options['error_DIR'] = os.path.expanduser( error_DIR )
     script_options['command'] = command
     script_options['username'] = username
     script_options['output_F'] = output_F
     script_options['error_F'] = error_F
-    outtext = """#!/bin/bash
-    #PBS -m a
-    #PBS -M %(username)s@mit.edu
-    #PBS -N %(jobname)s
-    #PBS -q %(queue)s
-    #PBS -e %(error_F)s
-    #PBS -o %(output_F)s
-    #PBS -S /bin/bash
-    echo $HOSTNAME
-    echo Working directory is %(workingdir)s
-    cd %(workingdir)s
-    %(command)s 1> %(output_F)s 2> %(error_F)s
-    echo "===== command finished =====" """ % script_options
-    call = "qsub -"
+
+    cmd_L = [
+            "#!/bin/bash",
+            "#SBATCH -o %(output_F)s" % script_options,
+            "#SBATCH -e %(error_F)s" % script_options,
+            "#SBATCH -p %(partition)s" % script_options,
+            "#SBATCH -J %(jobname)s" % script_options,
+            "#SBATCH -N %(nodes)s" % script_options,
+            "#SBATCH -C centos7"]
+    if ( time_mins != 'default' ):
+        cmd_L.append( "#SBATCH -t {}".format( time_mins ) )
+    cmd_L += ["cd %(workingdir)s" % script_options,
+              "%(command)s" % script_options ]
+
+    sh_script = os.path.join( error_DIR, "{}.sh".format( jobname ) )
+    print sh_script
+    with open( sh_script, 'w' ) as f:
+        f.write( "\n".join( cmd_L ) )
+
+    call = "sbatch {0}".format( sh_script )
     #error_f = open( os.path.join( error_DIR, "{}.error".format( jobname )), "w" )
     #output_f = open( os.path.join( error_DIR, "{}.out".format( jobname )), "w" )
     qsub = subprocess.Popen(
@@ -61,21 +76,17 @@ def launch(
         stdout = subprocess.PIPE,
         stderr = subprocess.PIPE,
         stdin = subprocess.PIPE )
-    qsub.stdin.write( outtext )
 
-    out_F = os.path.join( error_DIR, "{}.output".format( jobname ) )
-    open( out_F, 'w').write( outtext )
     output, error = qsub.communicate()
 
     print "output is: {}".format( output )
 
-    if output.strip().endswith('.coyote.mit.edu'):
-        job_id = int(output.strip().split('.')[0])
+    if ( output.strip().find( 'batch job' ) != -1 ):
+        job_id = int(output.strip().split(' ')[-1])
         print job_id, "\n"
         return job_id
     else:
         print output
-        print outtext
         print 'Failure to launch'
         raise ValueError('Failure to launch')
 
@@ -92,29 +103,58 @@ def launch_counter(
     """
     split_reads = lib_settings.get_split_reads()
     out_pkl = lib_settings.counts_file( count_type, k )
-    RBNS_utils.make_DIR( os.path.dirname(out_pkl) )
+    RBNS_utils.make_dir( os.path.dirname(out_pkl) )
     cluster_python_script = os.path.abspath( __file__ )
     barcode = lib_settings.get_barcode()
-    out_file = os.path.join(error_DIR, 'count.%s.%s.%i.out' % (barcode, count_type, k))
-    err_file = os.path.join(error_DIR, 'count.%s.%s.%i.err' % (barcode, count_type, k))
-    command = ('hostname ; python %(cluster_python_script)s '
+    out_file = os.path.join( error_DIR, 'count.%s.%s.%i.out' % (barcode, count_type, k) )
+    err_file = os.path.join( error_DIR, 'count.%s.%s.%i.err' % (barcode, count_type, k) )
+    command = ('python %(cluster_python_script)s '
                'counter '
                '%(count_type)s '
                '%(split_reads)s '
                '%(k)i '
-               '%(out_pkl)s '
-               '1> %(out_file)s '
-               '2> %(err_file)s ' % locals())
+               '%(out_pkl)s ' % locals() )
+               #'1> %(out_file)s '
+               #'2> %(err_file)s ' % locals())
     conc = lib_settings.get_conc()
     jobname = '%s.%s.%i.%g' % (os.path.basename(split_reads), count_type, k, conc)
     return launch(
             command,
             jobname = jobname,
-            ppn='1',
             error_DIR = error_DIR )
 
 
 
+def counter(
+        count_type,
+        split_reads,
+        k,
+        out_pkl ):
+    """
+    - Performs the counts of count_type on the split_reads, pickling them to
+        out_pkl
+    """
+    k = int( k )
+    if count_type == 'naive':
+        RBNS_main.count_naive(split_reads, k, out_pkl)
+    elif count_type == 'stream':
+        RBNS_main.count_stream(split_reads, k, out_pkl)
+    elif count_type == 'by_position':
+        RBNS_main.count_by_position(split_reads, k, out_pkl)
+    else:
+        raise ValueError( 'Unknown count type: %s ' % count_type )
+
+
+
+
+def test_launch():
+
+    launch(
+        "python /home/pfreese/py_lib/test.py",
+        script_options = False,
+        q = 'sched_mit_hill',
+        error_DIR = "/net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/ttt",
+        jobname = 'tm' )
 
 
 if __name__ == '__main__':

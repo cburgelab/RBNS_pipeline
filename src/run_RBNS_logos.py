@@ -27,7 +27,8 @@ def run_multiple_logos(
     """
     config_Fs_DIR = config_Fs_DIR.rstrip( "/" )
 
-    RBNS_logos_scripts_DIR = os.path.dirname(os.path.abspath(__file__))
+    RBNS_logos_scripts_DIR = os.path.dirname(
+            os.path.abspath(__file__) )
     RBNS_logos_script = os.path.join( RBNS_logos_scripts_DIR,
             RBNS_logos_script_basename )
 

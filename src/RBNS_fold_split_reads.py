@@ -38,14 +38,14 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
     errors_outputs_DIR = os.path.join( output_DIR, "errors_outputs" )
     RBNS_utils.make_dir( errors_outputs_DIR )
 
-    command = ('hostname ; python %(this_script_path)s '
+    command = ('python %(this_script_path)s '
             'get_Ppaired_DotBracket_andletters_for_reads_F_for_block '
             '%(in_reads_F)s '
             '%(temp)s '
             '%(block_idx)s '
+            '%(starting_scratch_DIR)s '
             '%(fiveP_adapter)s '
-            '%(threeP_adapter)s '
-            '%(starting_scratch_DIR)s ' % locals())
+            '%(threeP_adapter)s ' % locals())
 
     job_name = "{0}_block{1}_get_Ppaired_DotBracket_andletters_for_reads_F_for_block".format(
             os.path.basename( in_reads_F ).split(".reads")[0], block_idx )
@@ -54,8 +54,8 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
             out_file = os.path.join( errors_outputs_DIR,
                 "{}.log".format( job_name ) ),
             jobname = job_name,
-            error_dir = errors_outputs_DIR,
-            q = 'long' )
+            error_DIR = errors_outputs_DIR,
+            time_mins = 690 ) # 11.5 hours (12 hours is the limit)
 
 
 
@@ -276,6 +276,40 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
 
 
 
+def submit_get_suboptimal_sampled_DotBracket_reads_F(
+        in_reads_F,
+        temp,
+        starting_scratch_DIR ):
+    """
+    - For an in_reads_F split_reads file,
+        submits a job to run the
+        get_suboptimal_sampled_DotBracket_reads_F() function
+           below
+    """
+    #### Get this file path
+    filename = inspect.getframeinfo( inspect.currentframe() ).filename
+    this_script_path = os.path.abspath( filename )
+
+    output_DIR = os.path.dirname( in_reads_F )
+    errors_outputs_DIR = os.path.join( output_DIR, "errors_outputs" )
+    RBNS_utils.make_dir( errors_outputs_DIR )
+
+    command = ('python %(this_script_path)s '
+            'get_suboptimal_sampled_DotBracket_reads_F '
+            '%(in_reads_F)s '
+            '%(temp)s '
+            '%(starting_scratch_DIR)s ' % locals())
+
+    job_name = "{0}_get_suboptimal_sampled_DotBracket_reads_F".format(
+            os.path.basename( in_reads_F ).split(".reads")[0] )
+    RBNS_cluster_utils.launch(
+            command,
+            out_file = os.path.join( errors_outputs_DIR,
+                "{}.log".format( job_name ) ),
+            jobname = job_name,
+            error_DIR = errors_outputs_DIR,
+            time_mins = 690 ) # 11.5 hours (12 hours is the limit)
+
 
 
 
@@ -393,6 +427,180 @@ def get_suboptimal_sampled_DotBracket_reads_F(
     making_F = os.path.join( os.path.dirname( out_reads_F ),
         "{0}.subopt_DB.gz.making".format(
             os.path.basename( in_struct_gz_F ).split(".reads")[0] ) )
+    if os.path.exists( making_F ):
+        os.system( "rm {}".format( making_F ) )
+
+
+
+
+def submit_get_suboptimal_block_sampled_DotBracket_reads_F(
+        in_struct_gz_F,
+        temp,
+        starting_scratch_DIR ,
+        block_idx ):
+    """
+    - For an in_struct_gz_F split_reads file,
+        submits a job to run the
+        get_suboptimal_block_sampled_DotBracket_reads_F() function
+           below
+    """
+    #### Get this file path
+    filename = inspect.getframeinfo( inspect.currentframe() ).filename
+    this_script_path = os.path.abspath( filename )
+
+    output_DIR = os.path.dirname( in_struct_gz_F )
+    errors_outputs_DIR = os.path.join( output_DIR, "errors_outputs" )
+    RBNS_utils.make_dir( errors_outputs_DIR )
+
+    command = ('python %(this_script_path)s '
+            'get_suboptimal_block_sampled_DotBracket_reads_F '
+            '%(in_struct_gz_F)s '
+            '%(temp)s '
+            '%(starting_scratch_DIR)s '
+            '%(block_idx)s ' % locals())
+
+    job_name = "{0}_block{1}_get_suboptimal_block_sampled_DotBracket_reads_F".format(
+            os.path.basename( in_struct_gz_F ).split(".")[0], block_idx )
+    RBNS_cluster_utils.launch(
+            command,
+            out_file = os.path.join( errors_outputs_DIR,
+                "{}.log".format( job_name ) ),
+            jobname = job_name,
+            error_DIR = errors_outputs_DIR,
+            time_mins = 690 ) # 11.5 hours (12 hours is the limit)
+
+
+
+
+
+
+
+
+
+def get_suboptimal_block_sampled_DotBracket_reads_F(
+        in_struct_gz_F,
+        temp,
+        starting_scratch_DIR,
+        block_idx,
+        num_reads_per_block = 1000000,
+        num_subopt_to_get = 20,
+        num_reads_to_get_status_after = 1000,
+        copy_back_every_x_seconds = 10000000 ):
+    """
+    - For an in_struct_gz_F that already has 4 lines per read (e.g.,
+            RBFOX3_input.w_struc.reads.gz
+            RBFOX3_20.w_struc.reads.gz, etc.),
+        will get each read in in_struct_gz_F and sample num_subopt_to_get
+        suboptimal structures from the thermodynamic ensemble
+
+    - Makes an output file with num_subopt_to_get + 1 lines per read
+        (the read, followed by the num_subopt_to_get structures)
+    """
+    temp = int( temp )
+    block_idx = int( block_idx )
+
+    start_basename = os.path.basename( in_struct_gz_F ).split(".reads")[0]
+    out_DIR = os.path.join( os.path.dirname( in_struct_gz_F ),
+            "subopt_DB_{0}reads/by_block".format( num_subopt_to_get ) )
+    out_logs_DIR = os.path.join( out_DIR, "logs" )
+    os.system( "mkdir -p {}".format( out_logs_DIR ) )
+
+    lower_this_block = block_idx * num_reads_per_block * 4
+    upper_this_block = ( block_idx + 1 ) * num_reads_per_block * 4
+
+    out_reads_F = os.path.join( out_DIR,
+            "{0}.block_{1}.subopt_DB.gz".format( start_basename, block_idx ) )
+    if os.path.exists( out_reads_F ):
+        print "\n\t{} already exists - skipping".format( out_reads_F )
+        return
+
+    scratch_DIR = os.path.join( starting_scratch_DIR, "{0}_block{1}_{2}".format(
+            start_basename, block_idx, random.randint( 0, 100000 ) ) )
+    os.system( "mkdir -p {}".format( scratch_DIR ) )
+
+    #### copy over the reads to the scratch space
+    scratch_in_reads_F = os.path.join( scratch_DIR,
+            os.path.basename( in_struct_gz_F ) )
+    print "\n\tCopying {0} to {1}".format( in_struct_gz_F, scratch_in_reads_F )
+
+    RBNS_utils.copy_lines_lower_through_upper_to_another_F_without_N(
+            in_struct_gz_F,
+            scratch_in_reads_F,
+            lower_this_block,
+            upper_this_block )
+    shutil.copyfile( in_struct_gz_F, scratch_in_reads_F )
+    print "\t\tDONE"
+
+    out_F_to_append_results_to = os.path.join( scratch_DIR,
+            "{0}.block_{1}.subopt_DB.gz".format( start_basename, block_idx ) )
+    log_F = os.path.join( out_logs_DIR,
+            "{0}.block_{1}.subopt_DB.log.txt".format( start_basename, block_idx ) )
+    print "\n", log_F, "\n"
+
+    with open( log_F, "w" ) as log_f:
+        log_f.write( "Starting at: {}\n".format(
+            RBNS_utils.return_nice_datetime_str_for_filename() ) )
+
+        log_f.write( "hostname is: {}\n".format( socket.gethostname() ) )
+
+        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
+
+        log_f.write( "in_struct_gz_F: {}\n".format( in_struct_gz_F ) )
+        log_f.write( "temp: {}\n".format( temp ) )
+
+        log_f.write( "\n\n" + "="*80 + "\n" + "="*80 + "\n\n" )
+
+    num_reads_covered = 0
+    start_time = time.time()
+    last_copy_back_time = time.time()
+
+    reads_this_set_L = []
+    num_reads_this_set = 0
+    for lines_L in RBNS_utils.iterNlines(
+            scratch_in_reads_F, 4, strip_newlines = True ):
+
+        rand_RNA_seq = lines_L[0]
+        reads_this_set_L.append( rand_RNA_seq )
+        num_reads_this_set += 1
+        num_reads_covered += 1
+
+        if ( num_reads_this_set == num_reads_to_get_status_after ):
+
+            get_subopt_folding_of_reads(
+                reads_this_set_L,
+                scratch_DIR,
+                temp,
+                out_F_to_append_results_to,
+                num_to_return_for_each_read = num_subopt_to_get )
+
+            reads_this_set_L = []
+            num_reads_this_set = 0
+
+    get_subopt_folding_of_reads(
+        reads_this_set_L,
+        scratch_DIR,
+        temp,
+        out_F_to_append_results_to,
+        num_to_return_for_each_read = num_subopt_to_get )
+
+    print "Copying {0} to {1}".format( out_F_to_append_results_to, out_reads_F )
+    shutil.copyfile( out_F_to_append_results_to, out_reads_F )
+
+    with open( log_F, "a" ) as log_f:
+        total_sec = time.time() - start_time
+        curr_pprint_str = RBNS_utils.return_nice_datetime_str_for_filename()
+        curr_str = "\nFINISHED SUCCESSFULLY! Copied {0:,} reads to {1} at {2}\n\tTook {3:,} seconds\n".format(
+                num_reads_covered,
+                out_reads_F,
+                curr_pprint_str,
+                int( total_sec ) )
+        print curr_str
+        log_f.write( curr_str )
+
+    os.system( "rm -rf {}".format( scratch_DIR ) )
+    making_F = os.path.join( os.path.dirname( out_reads_F ),
+        "{0}.block_{1}.subopt_DB.gz.making".format(
+            start_basename, block_idx ) )
     if os.path.exists( making_F ):
         os.system( "rm {}".format( making_F ) )
 
@@ -585,7 +793,7 @@ def plot_RBNS_Ppaired_ratio_w_sig(
     if ( kmers_to_do == "top_10" ):
         kmer_R_T_L = [(kmer, effective_R_D[kmer]) for kmer in effective_R_D]
         kmer_R_T_L.sort( key = lambda x: -1 * x[1] )
-        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:1000]]
+        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:10]]
 
     #top_kmers_L = RBNS_exp.return_top_X_kmers( k, int( 4 ** k ) )
     for kmer_idx, kmer_to_plot in enumerate( top_kmers_L ):
@@ -763,7 +971,7 @@ def plot_R_by_Ppaired_bin_w_sig(
     if ( kmers_to_do == "top_10" ):
         kmer_R_T_L = [(kmer, effective_R_D[kmer]) for kmer in effective_R_D]
         kmer_R_T_L.sort( key = lambda x: -1 * x[1] )
-        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:1000]]
+        top_kmers_L = [tupl[0] for tupl in kmer_R_T_L[:10]]
 
     #top_kmers_L = RBNS_exp.return_top_X_kmers( k, int( 4 ** k ) )
     for kmer_idx, kmer_to_plot in enumerate( top_kmers_L ):
