@@ -20,7 +20,7 @@ The install.sh should take a while while Conda installs the dependencies. After 
 
 
 - The pdfnup command line program is required ('pip install pdfnup'). 
-	- Note that pdfnup.py script (which should be within your site-packages at /path/to/your/miniconda2/envs/rbns_pipeline/lib/python2.7/site-packages or /path/to/your/anaconda2/lib/python2.7/site-packages), may need to be modified in the following way: pdfnup.py has the line 'from pyPdf.pdf import PageObject, ImmutableSet, ContentStream', but the ImmutableSet import my throw an error; if that line is changed to just 'from pyPdf.pdf import PageObject, ImmutableSet, ContentStream' and then on a separate line add 'from sets import ImmutableSet', and everything should be OK. Just be sure to test via 'python pdfnup.py' and make sure there are no errors.
+	- Note that pdfnup.py script (which should be within your site-packages at /path/to/your/miniconda2/envs/rbns_pipeline/lib/python2.7/site-packages or /path/to/your/anaconda2/lib/python2.7/site-packages), may need to be modified in the following way: pdfnup.py has the line 'from pyPdf.pdf import PageObject, ImmutableSet, ContentStream', but the ImmutableSet import my throw an error; if that line is changed to just 'from pyPdf.pdf import PageObject, ContentStream' and then on a separate line add 'from sets import ImmutableSet', and everything should be OK. Just be sure to test via 'python pdfnup.py' and make sure there are no errors.
 
 ## Weblogo
 

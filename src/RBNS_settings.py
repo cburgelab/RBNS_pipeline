@@ -111,6 +111,7 @@ class RBNS_settings:
                 'naive_max_once_count': False,
                 'nt_freqs_by_position': True,
                 'num_reads_for_logos': 0.5,
+                'num_reads_per_folding_block': 1000000,
                 #### rna_5p_adapter / rna_5p_adapter are used in RNA folding
                 'rna_5p_adapter': "GGGGAGTTCTACAGTCCGACGATC",
                 'rna_3p_adapter': "TGGAATTCTCGGGTGTCAAGG",
@@ -121,6 +122,7 @@ class RBNS_settings:
         int_keys = [
                 'read_len',
                 'mismatches_allowed_in_barcode',
+                'num_reads_per_folding_block',
                 'temp']
 
         int_or_float_keys = ['num_reads_for_logos']
@@ -129,6 +131,7 @@ class RBNS_settings:
 
         boolean_keys = [
                 'by_position_count',
+                'fold_each_reads_f',
                 'force_by_position_recount',
                 'force_stream_recount',
                 'force_naive_recount',

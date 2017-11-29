@@ -23,7 +23,8 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         block_idx,
         starting_scratch_DIR ,
         fiveP_adapter,
-        threeP_adapter ):
+        threeP_adapter,
+        num_reads_per_block ):
     """
     - For an in_reads_F split_reads file,
         submits a job to run the
@@ -45,7 +46,8 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
             '%(block_idx)s '
             '%(starting_scratch_DIR)s '
             '%(fiveP_adapter)s '
-            '%(threeP_adapter)s ' % locals())
+            '%(threeP_adapter)s '
+            '%(num_reads_per_block)s ' % locals())
 
     job_name = "{0}_block{1}_get_Ppaired_DotBracket_andletters_for_reads_F_for_block".format(
             os.path.basename( in_reads_F ).split(".reads")[0], block_idx )
@@ -71,7 +73,7 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         starting_scratch_DIR,
         fiveP_adapter,
         threeP_adapter,
-        num_reads_per_block = 1000000,
+        num_reads_per_block,
         num_reads_to_get_status_after = 1000,
         copy_back_every_x_seconds = 10000000 ):
     """
@@ -87,6 +89,7 @@ def get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
     """
     temp = int( temp )
     block_idx = int( block_idx )
+    num_reads_per_block = int( num_reads_per_block )
 
     start_basename = os.path.basename( in_reads_F ).split(".reads")[0] +\
             ".block_{}".format( block_idx )
@@ -437,7 +440,8 @@ def submit_get_suboptimal_block_sampled_DotBracket_reads_F(
         in_struct_gz_F,
         temp,
         starting_scratch_DIR ,
-        block_idx ):
+        block_idx,
+        num_reads_per_block ):
     """
     - For an in_struct_gz_F split_reads file,
         submits a job to run the
@@ -457,7 +461,8 @@ def submit_get_suboptimal_block_sampled_DotBracket_reads_F(
             '%(in_struct_gz_F)s '
             '%(temp)s '
             '%(starting_scratch_DIR)s '
-            '%(block_idx)s ' % locals())
+            '%(block_idx)s '
+            '%(num_reads_per_block)s ' % locals())
 
     job_name = "{0}_block{1}_get_suboptimal_block_sampled_DotBracket_reads_F".format(
             os.path.basename( in_struct_gz_F ).split(".")[0], block_idx )
@@ -482,7 +487,7 @@ def get_suboptimal_block_sampled_DotBracket_reads_F(
         temp,
         starting_scratch_DIR,
         block_idx,
-        num_reads_per_block = 1000000,
+        num_reads_per_block,
         num_subopt_to_get = 20,
         num_reads_to_get_status_after = 1000,
         copy_back_every_x_seconds = 10000000 ):
@@ -498,6 +503,7 @@ def get_suboptimal_block_sampled_DotBracket_reads_F(
     """
     temp = int( temp )
     block_idx = int( block_idx )
+    num_reads_per_block= int( num_reads_per_block )
 
     start_basename = os.path.basename( in_struct_gz_F ).split(".reads")[0]
     out_DIR = os.path.join( os.path.dirname( in_struct_gz_F ),

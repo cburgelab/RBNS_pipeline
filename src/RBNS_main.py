@@ -71,10 +71,14 @@ class Bnse:
             #### Folds each read library
             self.fold_each_reads_by_block_F(
                 all_or_mostenrichedconc_only = settings.get_property(
-                    'fold_all_or_mostenrichedconc_only' ) )
+                    'fold_all_or_mostenrichedconc_only' ),
+                num_reads_per_block = settings.get_property(
+                    'num_reads_per_folding_block' ) )
             #### Combine the folded files in blocks of ~1,000,000 reads into
             ####    one file per library
-            self.combine_all_block_Fs_into_one_file()
+            self.combine_all_block_Fs_into_one_file(
+                    num_reads_per_block = settings.get_property(
+                        'num_reads_per_folding_block' ) )
             #### Calculates the distribution of C+G within input reads,
             ####    the subsamples each PD library to make a file whose PD
             ####    reads matches the input C+G content
@@ -85,10 +89,14 @@ class Bnse:
             #####   for each RNA (default: 20 structures sampled from the
             #####   ensemble)
             #self.get_subopt_sampled_DotBracket_structures_for_each_lib()
-            self.get_subopt_each_reads_by_block_F()
+            self.get_subopt_each_reads_by_block_F(
+                    num_reads_per_block = settings.get_property(
+                        'num_reads_per_folding_block' ) )
             #### Combine the folded subopt DotBrack files in blocks of
             ####    ~1,000,000 reads into one file per library
-            self.combine_all_subopt_block_Fs_into_one_file()
+            self.combine_all_subopt_block_Fs_into_one_file(
+                    num_reads_per_block = settings.get_property(
+                        'num_reads_per_folding_block' ) )
 
             ##### Calculated the Ppaired over the top enriched kmers as well
             ####    as flanking sequence
@@ -219,7 +227,7 @@ class Bnse:
             reads_per_barcode,
             total_reads,
             bad_barcodes,
-            num_reads_by_barcode_randomlen_D = None):
+            num_reads_by_barcode_randomlen_D = None ):
         """
         - Writes the log of which other barcodes were present.
             - If num_reads_by_barcode_randomlen_D is passed in,
@@ -2421,7 +2429,8 @@ class Bnse:
                             block_idx,
                             self.settings.get_property('scratch_dir'),
                             self.settings.get_property( 'rna_5p_adapter' ),
-                            self.settings.get_property( 'rna_3p_adapter' ) )
+                            self.settings.get_property( 'rna_3p_adapter' ),
+                            num_reads_per_block )
                 else:
                     p = multiprocessing.Process(
                             target = RBNS_fold_split_reads.get_Ppaired_DotBracket_andletters_for_reads_F_for_block,
@@ -2431,7 +2440,8 @@ class Bnse:
                                 block_idx,
                                 self.settings.get_property('scratch_dir'),
                                 self.settings.get_property( 'rna_5p_adapter' ),
-                                self.settings.get_property( 'rna_3p_adapter' ) ) )
+                                self.settings.get_property( 'rna_3p_adapter' ),
+                                num_reads_per_block ) )
                     jobs_L.append( p )
 
             #### Start each of the jobs and wait for them to finish
