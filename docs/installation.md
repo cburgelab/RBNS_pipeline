@@ -3,6 +3,8 @@
 ***
 # How to install RBNS pipeline dependencies
 
+### Note: on test installation, after 'git clone https://pfreese@bitbucket.org/pfreese/rbns_pipeline.git', an 'Gtk-WARNING' error popped up, which could be suppressed by entering 'unset SSH_ASKPASS' and retrying the git command. Also, if you are promped for a password, type nothing and just press enter to continue.
+
 ## Python
 
 It is highly recommended that you use python and other dependencies through a [Conda](https://conda.io/docs/user-guide/install/index.html) installation:
