@@ -82,7 +82,7 @@ def iterNlines(
                 lines = [f.readline().strip() for i in range( N )]
             else:
                 lines = [f.readline() for i in range(N)]
-            if lines[0] == '':
+            if ( lines[0] == '' ):
                 break
     except IOError: pass
     f.close()

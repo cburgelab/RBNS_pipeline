@@ -161,13 +161,8 @@ class Bnse:
         print "\nSplitting reads in: {}\n".format( self.settings.get_fastq() )
         print "\tto: {}\n".format( self.rdir_path('split_reads') )
 
-        num_reads_by_barcode_numCG_D = {}
-        for barcode in barcodes:
-            num_reads_by_barcode_numCG_D[barcode] = {}
-            for num_CG in range( read_len + 1 ):
-                num_reads_by_barcode_numCG_D[barcode][num_CG] = 0
-
-        for l1, l2, l3, l4 in RBNS_utils.iterNlines(self.settings.get_fastq(), 4):
+        for l1, l2, l3, l4 in RBNS_utils.iterNlines(
+                self.settings.get_fastq(), 4, strip_newlines = False ):
             barcode = RBNS_utils.get_barcode(l1,
                     self.settings.get_property('begin_barcode_symb'),
                     self.settings.get_property('end_barcode_symb'))[0:self.settings.get_property('barcode_len')]
@@ -179,7 +174,7 @@ class Bnse:
                 bad_barcodes[barcode] += 1
                 continue
             else:
-                if (check_for_perfect_adapter == True):
+                if check_for_perfect_adapter:
 
                     nt_before_barcode = l2.strip().rfind( start_of_adapter_seq )
                     try:
@@ -214,7 +209,7 @@ class Bnse:
                 reads_per_barcode,
                 total_reads,
                 bad_barcodes,
-                num_reads_by_barcode_randomlen_D = num_reads_by_barcode_randomlen_D)
+                num_reads_by_barcode_randomlen_D = num_reads_by_barcode_randomlen_D )
         # close all of the file handles
         map( lambda f: f.close(), barcode2of.values() )
         map( lambda f: f.close(), barcode2of_fastqs.values() )
@@ -2274,10 +2269,16 @@ class Bnse:
                         logos_Fs_L = glob.glob( os.path.join( logos_DIR,
                             "k_{0}_to_{1}_Zscoretokeep_{2:.1f}/consistent/*{0}mer_logos.pdf".format(
                                     k, lower_k, Z_score ) ) )
+                        log_F = os.path.join( logos_DIR,
+                            "k_{0}_to_{1}_Zscoretokeep_{2:.1f}/log_1.txt".format(
+                                    k, lower_k, Z_score ) )
+                        if os.path.exists( log_F ):
+                            continue
                         #### Only make this logo if it doesn't already exists, OR
                         ####    if force_redo_logos is True
                         if ( len( logos_Fs_L ) == 0 ) or\
                                 self.settings.get_property('force_redo_logos'):
+
                             f.write( "{0} --starting-k {1} --ending-k {2} --Zscore-kmers-to-keep {3}\n".format(
                                 starting_line, k, lower_k, Z_score) )
 
@@ -3198,7 +3199,7 @@ class Bnse:
             return barcode
         for barcode_j in barcodes:
             try:
-                if RBNS_utils.hamming_N(barcode, barcode_j) <=\
+                if RBNS_utils.hamming_distance(barcode, barcode_j) <=\
                         self.settings.get_property('mismatches_allowed_in_barcode'):
                         return barcode_j
             except ValueError:

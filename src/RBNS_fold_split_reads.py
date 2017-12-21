@@ -31,6 +31,11 @@ def submit_get_Ppaired_DotBracket_andletters_for_reads_F_for_block(
         get_Ppaired_DotBracket_andletters_for_reads_F_for_block() function
            below
     """
+    print "\n\n"
+    print fiveP_adapter
+    print threeP_adapter
+    print "\n\n"
+
     #### Get this file path
     filename = inspect.getframeinfo( inspect.currentframe() ).filename
     this_script_path = os.path.abspath( filename )
