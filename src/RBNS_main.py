@@ -8,6 +8,7 @@ import subprocess
 import operator
 import pprint
 import time
+import logging
 import multiprocessing
 
 import numpy as np
@@ -41,6 +42,10 @@ class Bnse:
         self.settings = settings
         self.counts_on_cluster = counts_on_cluster
         self.quick = quick
+        # # only for speed testing purposes
+        # # baseline for 1M raw, multiplexed reads is 20 seconds. Got it down to 4 seconds.
+        # self.split_reads(redo_split=True) 
+        # return
         self.split_reads()
         self.get_lib_complexity()
         self.do_counts()
@@ -111,7 +116,50 @@ class Bnse:
     ###########################################################################
     ###########################################################################
 
+    def make_barcode_lookup(self):
+        from time import time
+        t0 = time()
+        barcodes = self.settings.get_property('barcodes')
+        max_mm = self.settings.get_property('mismatches_allowed_in_barcode')
+        
+        lookup = {}
+        collision = set()
+        import RBNS_utils
+        for kmer in RBNS_utils.yield_kmers(self.settings.get_property('barcode_len')):
+            for bc in barcodes:
+                d = RBNS_utils.hamming_distance(kmer, bc)
+                if d > max_mm:
+                    continue
+                
+                if kmer in lookup:
+                    # this kmer matches multiple barcodes 
+                    # only keep the one with lowest hamming distance
+                    other, h = lookup[kmer]
+                    if h < d:
+                        continue # the other bc is a better fit.
 
+                    elif h == d:
+                        # drop this kmer from the hash bc
+                        # it is ambiguous
+                        del lookup[kmer]
+                        collision.add(kmer)
+
+                # either the only, or a better hit, as far as we know
+                lookup[kmer] = (bc, d)
+
+        dt = time() - t0
+        logging.debug("encountered {} kmer collisions while building lookup of {} kmers -> {} barcodes in {:.3f} seconds".format(
+            len(collision),
+            len(lookup),
+            len(barcodes),
+            dt
+        ))
+
+        # drop the Hamming distance
+        _lk = dict()
+        for kmer, (bc, d) in lookup.items():
+            _lk[kmer] = bc
+        return _lk
 
     def split_reads( self,
             redo_split = False ):
@@ -134,6 +182,7 @@ class Bnse:
 
         #### See if an adapter sequence was passed in to get reads
         ####    with the correct random insert length
+        from collections import defaultdict
         start_of_adapter_seq = self.settings.get_property('start_of_adapter_seq')
         if (start_of_adapter_seq != None):
             print "Checking for adapter sequences that match {}".format(
@@ -141,7 +190,7 @@ class Bnse:
             check_for_perfect_adapter = True
             num_reads_by_barcode_randomlen_D = {}
             for barcode in barcodes:
-                num_reads_by_barcode_randomlen_D[barcode] = {}
+                num_reads_by_barcode_randomlen_D[barcode] = defaultdict(int)
         else:
             check_for_perfect_adapter = False
             num_reads_by_barcode_randomlen_D = None
@@ -161,12 +210,25 @@ class Bnse:
         print "\nSplitting reads in: {}\n".format( self.settings.get_fastq() )
         print "\tto: {}\n".format( self.rdir_path('split_reads') )
 
-        for l1, l2, l3, l4 in RBNS_utils.iterNlines(
-                self.settings.get_fastq(), 4, strip_newlines = False ):
-            barcode = RBNS_utils.get_barcode(l1,
-                    self.settings.get_property('begin_barcode_symb'),
-                    self.settings.get_property('end_barcode_symb'))[0:self.settings.get_property('barcode_len')]
-            barcode_match = self.get_barcode_match(barcode, barcodes)
+        import re
+        bc_pattern = r"{bbs}(\w{{{bbl}}}){ebs}".format(
+            bbs=self.settings.get_property('begin_barcode_symb'),
+            ebs=self.settings.get_property('end_barcode_symb'),
+            bbl=self.settings.get_property('barcode_len')
+        )
+
+        bc_lookup = self.make_barcode_lookup()
+        from itertools import izip_longest
+        def grouper(n, iterable, fillvalue=''):
+            "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+            args = [iter(iterable)] * n
+            return izip_longest(fillvalue=fillvalue, *args)
+
+        in_fastq = RBNS_utils.aopen(self.settings.get_fastq())
+        for l1, l2, l3, l4 in grouper(4, in_fastq):
+            # continue
+            barcode = re.search(bc_pattern, l1).group(1)
+            barcode_match = bc_lookup.get(barcode, '')
             total_reads += 1
             #if ( total_reads == 100000 ):
             #    break
@@ -174,28 +236,32 @@ class Bnse:
                 bad_barcodes[barcode] += 1
                 continue
             else:
+                pass
                 if check_for_perfect_adapter:
 
-                    nt_before_barcode = l2.strip().rfind( start_of_adapter_seq )
-                    try:
-                        num_reads_by_barcode_randomlen_D[barcode][nt_before_barcode] += 1
-                    except KeyError:
-                        num_reads_by_barcode_randomlen_D[barcode][nt_before_barcode] = 1
+                    nt_before_barcode = l2.rfind( start_of_adapter_seq )
+                    # try:
+                    # print nt_before_barcode
+                    num_reads_by_barcode_randomlen_D[barcode_match][nt_before_barcode] += 1
+                    # except KeyError:
+                    #     num_reads_by_barcode_randomlen_D[barcode][nt_before_barcode] = 1
                     #### If the random region is equal to the expected
                     ####    read_len, write it out
                     if (nt_before_barcode == read_len):
+                        reads_per_barcode[barcode_match] += 1
+
                         trimmed_read = l2.strip()[:read_len]
                         trimmed_quality = l4.strip()[:read_len]
                         barcode2of[barcode_match].write(trimmed_read + '\n')
-                        reads_per_barcode[barcode_match] += 1
-                        # write all 4 lines to the fastq files
-                        barcode2of_fastqs[barcode_match].write(
-                            l1 + trimmed_read + '\n' + l3 + trimmed_quality + '\n')
+
+                        if barcode2of_fastqs:
+                            # write all 4 lines to the fastq files
+                            barcode2of_fastqs[barcode_match].write(
+                                l1 + trimmed_read + '\n' + l3 + trimmed_quality + '\n')
                     else:
                         barcode_wronginsertlen_2of[barcode_match].write( l2 )
 
                 else:
-
                     trimmed_read = l2.strip()[:read_len]
                     trimmed_quality = l4.strip()[:read_len]
                     barcode2of[barcode_match].write(trimmed_read + '\n')
@@ -3228,10 +3294,14 @@ class Bnse:
         """
         returns a dictionary barcode-> file handles for the .fastq of the split reads
         """
-        return {
+        if self.settings.get_property('split_fastq'):
+            res = {
                 lib_settings.barcode: gzip.open(lib_settings.get_split_fastqs(), 'wb')
                 for lib_settings in self.settings.iter_lib_settings()}
+        else:
+            res = {}
 
+        return res
 
     def get_rdir_fhandle( self, *args ):
         """
