@@ -115,6 +115,7 @@ class RBNS_settings:
                 #### rna_5p_adapter / rna_5p_adapter are used in RNA folding
                 'rna_5p_adapter': "GGGGAGTTCTACAGTCCGACGATC",
                 'rna_3p_adapter': "TGGAATTCTCGGGTGTCAAGG",
+                'split_fastq': True,
                 'stream_count': False,
                 'temp': 4,
                 'z_scores_for_logos': [3.] }
@@ -139,6 +140,7 @@ class RBNS_settings:
                 'naive_count',
                 'naive_max_once_count',
                 'nt_freqs_by_position',
+                'split_fastq',
                 'stream_count']
 
         list_str_keys = [
