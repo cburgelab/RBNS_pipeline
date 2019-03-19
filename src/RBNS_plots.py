@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import matplotlib
+matplotlib.use('Agg')
 import pprint
 import os, sys
 import cPickle as pickle
@@ -2431,7 +2433,7 @@ def merge_4_PDFs_on_1_page(
     """
     from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
     from PyPDF2.generic import RectangleObject
-    from pdfnup import generateNup
+    #from pdfnup import generateNup # commented out by MA/KK
 
     output = PdfFileWriter()
 
@@ -2445,7 +2447,7 @@ def merge_4_PDFs_on_1_page(
     output.write(outputStream)
     outputStream.close()
 
-    generateNup( out_F, 4 )
+    #generateNup( out_F, 4 ) # commented out by MA/KK
 
 
 
