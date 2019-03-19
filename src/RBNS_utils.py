@@ -44,8 +44,11 @@ def make_dir( DIR ):
 
 
 def aopen( F, mode = 'r' ):
+    import io
     if ( F[-3:] == '.gz' ):
-        return gzip.open( F, mode + 'b')
+        gz_file = gzip.open(F)
+        return io.BufferedReader(gz_file)
+        # return gzip.open( F, mode + 'b')
     else:
         return open( F, mode)
 
