@@ -860,8 +860,8 @@ def plot_RBNS_Ppaired_ratio_w_sig(
                 out_F_start,
                 read_len,
                 title = title,
-                #plot_signif = True,
-                plot_signif = False,
+                plot_signif = True,
+                #plot_signif = False, # toggled by MA/KK
                 #skip_if_already_exists = True )
                 skip_if_already_exists = False )
         ratios_by_motif_pos_D = returned_D['ratios_by_motif_pos_D']
@@ -1063,8 +1063,8 @@ def plot_R_by_Ppaired_bin_w_sig(
                 out_F_start,
                 read_len,
                 title = title,
-                #plot_signif = True,
-                plot_signif = False )
+                plot_signif = True) # toggled by MA/KK
+                #plot_signif = False )
         sigB_by_kmer_conc_bin_D = returned_D['sigB_by_kmer_conc_bin_D']
 
         out_ratio_D_F = os.path.join( out_Ds_DIR,
