@@ -20,11 +20,11 @@ import RBNS_utils
 def launch(
         command,
         script_options = False,
-        q = 'sched_mit_hill',
+        q = 'sched_engaging_default',
         jobname = 'ajob',
         out_file = '',
         error_DIR = '~',
-        username = 'pfreese',
+        username = 'kkrick',
         time_mins = 'default',
         mem = '1gb' ):
     """
