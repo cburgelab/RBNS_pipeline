@@ -585,7 +585,7 @@ def merge_PDFs_mult_on_page(
 
     from PyPDF2 import PdfFileReader, PdfFileMerger, PdfFileWriter
     from PyPDF2.generic import RectangleObject
-    from pdfnup import generateNup
+    #from pdfnup import generateNup # commented out by MA/KK
 
     output = PdfFileWriter()
 
@@ -599,6 +599,9 @@ def merge_PDFs_mult_on_page(
     outputStream.close()
 
     combined_PDF_F = out_F.split( ".pdf" )[0] + "-{}up.pdf".format(Nsquared_or_div2)
+    
+    return combined_PDF_F ## added by MA/KK
+
     if ( Nsquared_or_div2 == 4 ):
 
         cmd = "pdfnup -n 4 --output {0} {1}".format(
