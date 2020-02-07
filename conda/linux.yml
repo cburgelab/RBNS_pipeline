@@ -4,17 +4,19 @@ channels:
 - defaults
 - conda-forge
 dependencies:
-- viennarna=2.3.5=0
+- python=2.7
+- viennarna=2.3.5
 - matplotlib=2.1.0
-- numpy=1.12.1=py27_0
-- pandas=0.20.3=py27_0
-- pip=9.0.1=py27_1
+- numpy=1.12.1
+- pandas=0.20.3
+- pip=9.0.1
 - PyPDF2=1.26.0
-- python=2.7.11
-- python-dateutil=2.6.1=py27_0
-- scipy=0.19.1=np112py27_0
-- setuptools=27.2.0=py27_0
+- python-dateutil=2.6.1
+- scipy=0.19.1
+- setuptools=27.2.0
 - yaml=0.1.6=0
+- forgi=2.0.2
+- simplejson=3.17.0
 - pip:
   - ipython-genutils==0.2.0
   - prompt-toolkit==1.0.14

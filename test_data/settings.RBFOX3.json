@@ -1,0 +1,42 @@
+[ input ]
+fastq = RBFOX3.test.gz
+
+[ parameters ]
+read_len = 20
+protein_name = RBFOX3
+barcodes = ["AGTTCC", "GGCTAC", "TCGGCA"]
+concentrations = [20, 1300, 0]
+temp = 4
+
+input_barcode = TCGGCA
+start_of_adapter_seq = TGGAAT
+
+naive_count = True
+stream_count = False
+by_position_count = False
+naive_max_once_count = False
+
+kmers_to_ignore = []
+
+ks_to_test_naive = [5, 6]
+ks_to_test_stream = []
+ks_to_test_by_position = []
+ks_to_test_naive_max_once = []
+ks_to_test_logos = []
+Z_scores_for_logos = []
+
+fold_each_reads_F = True
+num_reads_per_folding_block = 500000
+
+force_naive_recount = False
+force_stream_recount = False
+force_by_position_recount = False
+force_redo_logos = False
+
+make_unique_reads_F = False
+
+[ output ]
+results_dir = /net/eofe-data010/data001/burgelab/nevermind/data/nm/pfreese/RBFOX3_test_cluster
+scratch_dir = /nobackup1/pfreese/RBFOX3_test_cluster
+
+
